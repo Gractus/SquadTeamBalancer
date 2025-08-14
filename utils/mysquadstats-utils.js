@@ -17,7 +17,7 @@ export default class MySquadStatsUtils {
 
     this.playerData = {};
     this.logger = options.logger || {
-      verbose: (level, msg) => { if (this.verboseLogging) { console.log(`[INFO:${level}] ${msg}`) } },
+      verbose: (level, msg) => { if (this.options.verboseLogging) { console.log(`[INFO:${level}] ${msg}`) } },
       error: (msg) => console.error(`[ERROR] ${msg}`),
     };
 
