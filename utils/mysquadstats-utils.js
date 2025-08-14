@@ -65,11 +65,6 @@ export default class MySquadStatsUtils {
   async fetchPlayersData(players) {
     this.logger.verbose(1, `Fetching skill data for ${players.length} players`);
 
-    if (!this.options.accessToken) {
-      this.logger.verbose(1, `No access token provided for API requests, using fallback data for all players`);
-      return this.createFallbackDataForPlayers(players);
-    }
-
     const batchSize = 3;
     let processedCount = 0;
 
@@ -190,20 +185,7 @@ export default class MySquadStatsUtils {
 
     this.logger.verbose(2, `Using fallback data for ${steamID}`);
 
-    this.playerData[steamID] = fallbackData;
     return fallbackData;
-  }
-
-  createFallbackDataForPlayers(players) {
-    for (const player of players) {
-      if (!player.steamID) continue;
-
-      if (!this.playerData[player.steamID]) {
-        this.createFallbackData(player.steamID, player.name);
-      }
-    }
-
-    return this.playerData;
   }
 
   async apiRequest(endpoint, params = {}) {
