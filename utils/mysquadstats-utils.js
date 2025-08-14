@@ -17,7 +17,7 @@ export default class MySquadStatsUtils {
 
     this.playerData = {};
     this.logger = options.logger || {
-      verbose: (level, msg) => {if (this.verboseLogging) {console.log(`[INFO:${level}] ${msg}`)}},
+      verbose: (level, msg) => { if (this.verboseLogging) { console.log(`[INFO:${level}] ${msg}`) } },
       error: (msg) => console.error(`[ERROR] ${msg}`),
     };
 
@@ -39,11 +39,7 @@ export default class MySquadStatsUtils {
           })
         );
 
-        this.logger.verbose(
-          2,
-          `Loaded ${Object.keys(this.playerData).length
-          } cached player records`
-        );
+        this.logger.verbose(2, `Loaded ${Object.keys(this.playerData).length} cached player records`);
       }
     } catch (error) {
       this.logger.verbose(1, `Error loading player data: ${error.message}`);
@@ -60,10 +56,7 @@ export default class MySquadStatsUtils {
         JSON.stringify(this.playerData, null, 2),
         "utf8"
       );
-      this.logger.verbose(
-        2,
-        `Saved ${Object.keys(this.playerData).length} player records to cache`
-      );
+      this.logger.verbose(2, `Saved ${Object.keys(this.playerData).length} player records to cache`);
     } catch (error) {
       this.logger.verbose(1, `Error saving player data: ${error.message}`);
     }
@@ -73,10 +66,7 @@ export default class MySquadStatsUtils {
     this.logger.verbose(1, `Fetching skill data for ${players.length} players`);
 
     if (!this.options.accessToken) {
-      this.logger.verbose(
-        1,
-        `No access token provided for API requests, using fallback data for all players`
-      );
+      this.logger.verbose(1, `No access token provided for API requests, using fallback data for all players`);
       return this.createFallbackDataForPlayers(players);
     }
 
@@ -93,10 +83,7 @@ export default class MySquadStatsUtils {
         await Promise.allSettled(promises);
         processedCount += batch.length;
 
-        this.logger.verbose(
-          2,
-          `Processed ${processedCount}/${players.length} players`
-        );
+        this.logger.verbose(2, `Processed ${processedCount}/${players.length} players`);
 
         if (i + batchSize < players.length) {
           const delay = 2000;
@@ -108,11 +95,7 @@ export default class MySquadStatsUtils {
       }
     }
 
-    this.logger.verbose(
-      1,
-      `Completed fetching skill data for players. Retrieved ${Object.keys(this.playerData).length
-      } records.`
-    );
+    this.logger.verbose(1, `Completed fetching skill data for players. Retrieved ${Object.keys(this.playerData).length} records.`);
     return this.playerData;
   }
 
@@ -181,10 +164,7 @@ export default class MySquadStatsUtils {
 
       return playerData;
     } catch (error) {
-      this.logger.verbose(
-        1,
-        `Error fetching player data for ${steamID}: ${error.message}`
-      );
+      this.logger.verbose(1, `Error fetching player data for ${steamID}: ${error.message}`);
 
       if (this.playerData[steamID]) {
         return this.playerData[steamID];
@@ -208,10 +188,7 @@ export default class MySquadStatsUtils {
       lastUpdated: Date.now(),
     };
 
-    this.logger.verbose(
-      2,
-      `Using fallback data for ${steamID}, Elo rating: ${fallbackData.skillRating} (penalized -${this.eloConfig.penalties.noProfile})`
-    );
+    this.logger.verbose(2, `Using fallback data for ${steamID}`);
 
     this.playerData[steamID] = fallbackData;
     return fallbackData;
@@ -250,11 +227,7 @@ export default class MySquadStatsUtils {
         const safeUrl = this.options.accessToken
           ? fullUrl.replace(this.options.accessToken, "[ACCESS_TOKEN]")
           : fullUrl;
-        this.logger.verbose(
-          2,
-          `Making API request to ${safeUrl} (attempt ${attempts + 1}/${this.options.apiRequestRetries
-          })`
-        );
+        this.logger.verbose(2, `Making API request to ${safeUrl} (attempt ${attempts + 1}/${this.options.apiRequestRetries})`);
 
         const controller = new AbortController();
         const timeoutId = setTimeout(
@@ -288,10 +261,7 @@ export default class MySquadStatsUtils {
         attempts++;
         lastError = error;
 
-        this.logger.verbose(
-          2,
-          `API request attempt ${attempts} failed: ${error.message}`
-        );
+        this.logger.verbose(2, `API request attempt ${attempts} failed: ${error.message}`);
 
         if (attempts < this.options.apiRequestRetries) {
           await new Promise((resolve) => setTimeout(resolve, 1000 * attempts));
