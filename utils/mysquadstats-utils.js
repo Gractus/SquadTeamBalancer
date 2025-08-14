@@ -21,10 +21,10 @@ export default class MySquadStatsUtils {
       error: (msg) => console.error(`[ERROR] ${msg}`),
     };
 
-    this.loadPlayerData();
+    this.loadPlayerDatabase();
   }
 
-  loadPlayerData() {
+  loadPlayerDatabase() {
     try {
       if (fs.existsSync(this.options.playerListFile)) {
         const data = fs.readFileSync(this.options.playerListFile, "utf8");
@@ -47,7 +47,7 @@ export default class MySquadStatsUtils {
     }
   }
 
-  savePlayerData() {
+  savePlayerDatabase() {
     if (!this.options.cachePlayerData) return;
 
     try {

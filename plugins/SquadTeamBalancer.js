@@ -422,9 +422,7 @@ export default class SquadTeamBalancer extends BasePlugin {
 
     this.verbose(1, "Balance command received, initializing minimal balance mode");
 
-    await this.notifyAdmins(
-      `Admin ${info.name} initiated balanced team shuffle (minimal changes mode). Operation started.`
-    );
+    await this.notifyAdmins(`Admin ${info.name} initiated balanced team shuffle (minimal changes mode). Operation started.`);
 
     this.mode = "balance";
     await this.startBalancing(this.options.startBalanceMessage);
@@ -440,9 +438,7 @@ export default class SquadTeamBalancer extends BasePlugin {
 
     this.verbose(1, "Full shuffle command received, initializing extensive shuffle mode");
 
-    await this.notifyAdmins(
-      `Admin ${info.name} initiated full team shuffle. Operation started.`
-    );
+    await this.notifyAdmins(`Admin ${info.name} initiated full team shuffle. Operation started.`);
 
     this.mode = "fullShuffle";
     await this.startBalancing(this.options.startFullShuffleMessage);
@@ -478,9 +474,7 @@ export default class SquadTeamBalancer extends BasePlugin {
       return;
     }
 
-    await this.notifyAdmins(
-      `Admin ${info.name} cancelled the team balancing operation`
-    );
+    await this.notifyAdmins(`Admin ${info.name} cancelled the team balancing operation`);
 
     this.clearAllIntervals();
     this.savedTeams = { Team1: {}, Team2: {}, Team0: {} };
@@ -521,9 +515,7 @@ export default class SquadTeamBalancer extends BasePlugin {
 
     try {
       await this.warnPlayer(info.eosID, this.options.checkingMessage);
-      await this.notifyAdmins(
-        `Admin ${info.name} requested a team balance check...`
-      );
+      await this.notifyAdmins(`Admin ${info.name} requested a team balance check...`);
 
       const players = this.server.players.slice(0);
       const teams = this.organizeTeams(players);
@@ -531,9 +523,7 @@ export default class SquadTeamBalancer extends BasePlugin {
       if (Object.keys(this.playerSkillData).length === 0) {
         try {
           this.verbose(1, "Fetching player skill data from API...");
-          await this.notifyAdmins(
-            `Fetching player skill data from API, please wait...`
-          );
+          await this.notifyAdmins(`Fetching player skill data from API, please wait...`);
 
           const playersWithSteamIDs = players.filter(
             (player) => player.steamID
@@ -545,9 +535,7 @@ export default class SquadTeamBalancer extends BasePlugin {
           this.verbose(1, `Retrieved skill data for ${Object.keys(this.playerSkillData).length} players`);
         } catch (error) {
           this.verbose(1, `Error fetching player skill data: ${error.message}`);
-          await this.notifyAdmins(
-            `Error fetching player skill data: ${error.message}`
-          );
+          await this.notifyAdmins(`Error fetching player skill data: ${error.message}`);
           this.isCheckCommandRunning = false;
           return;
         }
@@ -567,12 +555,8 @@ export default class SquadTeamBalancer extends BasePlugin {
       const skillDifference = Math.abs(team1Skill - team2Skill);
 
       let resultMessage = `Current Team Balance:\n`;
-      resultMessage += `| Team 1: ${team1Count} players (avg Elo: ${team1Skill.toFixed(
-        0
-      )})\n`;
-      resultMessage += `| Team 2: ${team2Count} players (avg Elo: ${team2Skill.toFixed(
-        0
-      )})\n`;
+      resultMessage += `| Team 1: ${team1Count} players (avg Elo: ${team1Skill.toFixed(0)})\n`;
+      resultMessage += `| Team 2: ${team2Count} players (avg Elo: ${team2Skill.toFixed(0)})\n`;
       resultMessage += `| ELO Difference: ${skillDifference.toFixed(0)}\n`;
 
       if (skillDifference <= this.options.maxEloRatingDifference) {
@@ -629,7 +613,7 @@ export default class SquadTeamBalancer extends BasePlugin {
         this.apiCallInProgress = false;
 
         if (this.options.cachePlayerData) {
-          this.squadStatsUtils.savePlayerData();
+          this.squadStatsUtils.savePlayerDatabase();
         }
       } catch (error) {
         this.apiCallInProgress = false;
@@ -699,9 +683,7 @@ export default class SquadTeamBalancer extends BasePlugin {
         Object.keys(this.playerSkillData).length === 0
       ) {
         this.verbose(1, "Canceling balance operation - API data not available");
-        await this.notifyAdmins(
-          "Team balancing canceled - API data not available"
-        );
+        await this.notifyAdmins("Team balancing canceled - API data not available");
         this.cleanupAfterBalancing();
         return;
       }
@@ -716,12 +698,8 @@ export default class SquadTeamBalancer extends BasePlugin {
         this.verbose(1, "Randomiser flag has been reset to false");
       }, this.options.resetDelayMinutes * 60000);
 
-      const team1HasPlayers = Object.values(this.savedTeams.Team1).some(
-        (squad) => squad.length > 0
-      );
-      const team2HasPlayers = Object.values(this.savedTeams.Team2).some(
-        (squad) => squad.length > 0
-      );
+      const team1HasPlayers = Object.values(this.savedTeams.Team1).some((squad) => squad.length > 0);
+      const team2HasPlayers = Object.values(this.savedTeams.Team2).some((squad) => squad.length > 0);
 
       if (!team1HasPlayers && !team2HasPlayers) {
         this.verbose(1, "No saved teams to balance");
@@ -1077,9 +1055,6 @@ export default class SquadTeamBalancer extends BasePlugin {
     const team1SwapSquads = this.getRandomSquads(team1Squads, team1SwapCount);
     const team2SwapSquads = this.getRandomSquads(team2Squads, team2SwapCount);
 
-    if (Object.keys(this.playerSkillData).length > 0) {
-    }
-
     const toSwapTeam1 = this.flattenSquads(team1SwapSquads);
     const toSwapTeam2 = this.flattenSquads(team2SwapSquads);
 
@@ -1403,8 +1378,7 @@ export default class SquadTeamBalancer extends BasePlugin {
           const tickets = isWinner
             ? roundEndInfo.winner.tickets
             : roundEndInfo.loser.tickets;
-          ticketString = ` | Tickets: ${tickets} | ${isWinner ? "WINNER" : "LOSER"
-          }`;
+          ticketString = ` | Tickets: ${tickets} | ${isWinner ? "WINNER" : "LOSER"}`;
         }
       }
 
