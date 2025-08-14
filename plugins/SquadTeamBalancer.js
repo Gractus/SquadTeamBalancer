@@ -420,10 +420,7 @@ export default class SquadTeamBalancer extends BasePlugin {
       return;
     }
 
-    this.verbose(
-      1,
-      "Balance command received, initializing minimal balance mode"
-    );
+    this.verbose(1, "Balance command received, initializing minimal balance mode");
 
     await this.notifyAdmins(
       `Admin ${info.name} initiated balanced team shuffle (minimal changes mode). Operation started.`
@@ -441,10 +438,7 @@ export default class SquadTeamBalancer extends BasePlugin {
       return;
     }
 
-    this.verbose(
-      1,
-      "Full shuffle command received, initializing extensive shuffle mode"
-    );
+    this.verbose(1, "Full shuffle command received, initializing extensive shuffle mode");
 
     await this.notifyAdmins(
       `Admin ${info.name} initiated full team shuffle. Operation started.`
@@ -548,12 +542,7 @@ export default class SquadTeamBalancer extends BasePlugin {
             playersWithSteamIDs
           );
 
-          this.verbose(
-            1,
-            `Retrieved skill data for ${
-              Object.keys(this.playerSkillData).length
-            } players`
-          );
+          this.verbose(1, `Retrieved skill data for ${Object.keys(this.playerSkillData).length} players`);
         } catch (error) {
           this.verbose(1, `Error fetching player skill data: ${error.message}`);
           await this.notifyAdmins(
@@ -634,12 +623,7 @@ export default class SquadTeamBalancer extends BasePlugin {
         this.playerSkillData = await this.squadStatsUtils.fetchPlayersData(
           playersWithSteamIDs
         );
-        this.verbose(
-          1,
-          `Retrieved skill data for ${
-            Object.keys(this.playerSkillData).length
-          } players`
-        );
+        this.verbose(1, `Retrieved skill data for ${Object.keys(this.playerSkillData).length} players`);
 
         this.apiCallComplete = true;
         this.apiCallInProgress = false;
@@ -660,10 +644,7 @@ export default class SquadTeamBalancer extends BasePlugin {
         }
       }
     } else {
-      this.verbose(
-        1,
-        `Not enough players (${players.length}) for skill balancing. Threshold is ${this.options.playerThreshold}`
-      );
+      this.verbose(1, `Not enough players (${players.length}) for skill balancing. Threshold is ${this.options.playerThreshold}`);
     }
   }
 
@@ -918,10 +899,7 @@ export default class SquadTeamBalancer extends BasePlugin {
         eloDifference > this.options.maxEloRatingDifference &&
         !this.emergencyBalanceAttempted
       ) {
-        this.verbose(
-          1,
-          "Standard balancing insufficient, attempting to move unassigned players"
-        );
+        this.verbose(1, "Standard balancing insufficient, attempting to move unassigned players");
         this.emergencyBalanceAttempted = true;
 
         setTimeout(() => {
@@ -937,13 +915,7 @@ export default class SquadTeamBalancer extends BasePlugin {
           unassignedSwaps.toSwapTeam1.length > 0 ||
           unassignedSwaps.toSwapTeam2.length > 0
         ) {
-          this.verbose(
-            1,
-            `Found ${
-              unassignedSwaps.toSwapTeam1.length +
-              unassignedSwaps.toSwapTeam2.length
-            } unassigned players to move`
-          );
+          this.verbose(1, `Found ${unassignedSwaps.toSwapTeam1.length + unassignedSwaps.toSwapTeam2.length} unassigned players to move`);
 
           const remainingTime = timeLimit - (Date.now() - swapStartTime);
           if (remainingTime > 0) {
@@ -993,10 +965,7 @@ export default class SquadTeamBalancer extends BasePlugin {
               "Time limit reached before attempting emergency balance";
           }
         } else {
-          this.verbose(
-            1,
-            "No suitable unassigned players found for additional balancing"
-          );
+          this.verbose(1, "No suitable unassigned players found for additional balancing");
         }
       }
 
@@ -1075,18 +1044,10 @@ export default class SquadTeamBalancer extends BasePlugin {
       const skill2 = teamSkills.Team2.avgSkill;
       const difference = Math.abs(skill1 - skill2);
 
-      this.verbose(
-        1,
-        `Initial skill difference: ${difference.toFixed(
-          2
-        )} (Team1: ${skill1.toFixed(2)}, Team2: ${skill2.toFixed(2)})`
-      );
+      this.verbose(1, `Initial skill difference: ${difference.toFixed(2)} (Team1: ${skill1.toFixed(2)}, Team2: ${skill2.toFixed(2)})`);
 
       if (difference <= this.options.maxEloRatingDifference) {
-        this.verbose(
-          1,
-          `Teams already balanced within threshold (${this.options.maxEloRatingDifference})`
-        );
+        this.verbose(1, `Teams already balanced within threshold (${this.options.maxEloRatingDifference})`);
         return { toSwapTeam1: [], toSwapTeam2: [] };
       }
 
@@ -1122,10 +1083,7 @@ export default class SquadTeamBalancer extends BasePlugin {
     const toSwapTeam1 = this.flattenSquads(team1SwapSquads);
     const toSwapTeam2 = this.flattenSquads(team2SwapSquads);
 
-    this.verbose(
-      1,
-      `Selected ${toSwapTeam1.length} players from Team1 and ${toSwapTeam2.length} players from Team2 for full shuffle`
-    );
+    this.verbose(1, `Selected ${toSwapTeam1.length} players from Team1 and ${toSwapTeam2.length} players from Team2 for full shuffle`);
 
     return { toSwapTeam1, toSwapTeam2 };
   }
@@ -1163,10 +1121,7 @@ export default class SquadTeamBalancer extends BasePlugin {
         playersToSwap.splice(i, 1);
         i--;
       } catch (error) {
-        this.verbose(
-          1,
-          `Failed to swap player ${player.name}: ${error.message}`
-        );
+        this.verbose(1, `Failed to swap player ${player.name}: ${error.message}`);
       }
     }
 
@@ -1318,14 +1273,7 @@ export default class SquadTeamBalancer extends BasePlugin {
 
         const newDifference = currentDifference - squadToMove.length;
         if (Math.abs(newDifference) > 4) {
-          this.verbose(
-            1,
-            `Skipping move of squad ${
-              move.squadID
-            } as it would create team size imbalance of ${Math.abs(
-              newDifference
-            )}`
-          );
+          this.verbose(1, `Skipping move of squad ${move.squadID} as it would create team size imbalance of ${Math.abs(newDifference)}`);
           continue;
         }
 
@@ -1336,14 +1284,7 @@ export default class SquadTeamBalancer extends BasePlugin {
 
         const newDifference = currentDifference + squadToMove.length;
         if (Math.abs(newDifference) > 4) {
-          this.verbose(
-            1,
-            `Skipping move of squad ${
-              move.squadID
-            } as it would create team size imbalance of ${Math.abs(
-              newDifference
-            )}`
-          );
+          this.verbose(1, `Skipping move of squad ${move.squadID} as it would create team size imbalance of ${Math.abs(newDifference)}`);
           continue;
         }
 
@@ -1363,10 +1304,7 @@ export default class SquadTeamBalancer extends BasePlugin {
           if (player) {
             const newDifference = currentDifference - 1;
             if (Math.abs(newDifference) > 4) {
-              this.verbose(
-                1,
-                `Skipping move of player ${player.name} as it would create team size imbalance`
-              );
+              this.verbose(1, `Skipping move of player ${player.name} as it would create team size imbalance`);
               continue;
             }
 
@@ -1382,10 +1320,7 @@ export default class SquadTeamBalancer extends BasePlugin {
           if (player) {
             const newDifference = currentDifference + 1;
             if (Math.abs(newDifference) > 4) {
-              this.verbose(
-                1,
-                `Skipping move of player ${player.name} as it would create team size imbalance`
-              );
+              this.verbose(1, `Skipping move of player ${player.name} as it would create team size imbalance`);
               continue;
             }
 
@@ -1468,8 +1403,7 @@ export default class SquadTeamBalancer extends BasePlugin {
           const tickets = isWinner
             ? roundEndInfo.winner.tickets
             : roundEndInfo.loser.tickets;
-          ticketString = ` | Tickets: ${tickets} | ${
-            isWinner ? "WINNER" : "LOSER"
+          ticketString = ` | Tickets: ${tickets} | ${isWinner ? "WINNER" : "LOSER"
           }`;
         }
       }
@@ -1568,10 +1502,7 @@ export default class SquadTeamBalancer extends BasePlugin {
     );
 
     if (eligiblePlayers.length === 0) {
-      this.verbose(
-        1,
-        "No eligible unassigned players found (all were already swapped)"
-      );
+      this.verbose(1, "No eligible unassigned players found (all were already swapped)");
       return { toSwapTeam1: [], toSwapTeam2: [] };
     }
 
@@ -1589,10 +1520,7 @@ export default class SquadTeamBalancer extends BasePlugin {
     maxMovableCount = Math.min(maxMovableCount, eligiblePlayers.length);
 
     if (maxMovableCount <= 0) {
-      this.verbose(
-        1,
-        `Cannot move unassigned players - would exceed max team size difference of 4`
-      );
+      this.verbose(1, `Cannot move unassigned players - would exceed max team size difference of 4`);
       return { toSwapTeam1: [], toSwapTeam2: [] };
     }
 
@@ -1608,10 +1536,7 @@ export default class SquadTeamBalancer extends BasePlugin {
 
     const playersToMove = eligiblePlayers.slice(0, maxMovableCount);
 
-    this.verbose(
-      1,
-      `Selected ${playersToMove.length} unassigned players to move from ${higherSkillTeam} to ${lowerSkillTeam}`
-    );
+    this.verbose(1, `Selected ${playersToMove.length} unassigned players to move from ${higherSkillTeam} to ${lowerSkillTeam}`);
 
     if (higherSkillTeam === "Team1") {
       return { toSwapTeam1: playersToMove, toSwapTeam2: [] };
