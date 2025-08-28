@@ -237,8 +237,10 @@ export class LogisticRegressionRater {
     diff.kdr = statsA.kdr - statsB.kdr;
     diff.playTime = statsA.playTime - statsB.playTime;
     diff.score = statsA.score - statsB.score;
-    // TODO: use actual formula.
-    return 1 * (diff.kdr)
+    // (Intercept)      diff_avg_kdr diff_avg_playtime    diff_avg_score
+    //  1.071732e-02      4.181450e+00      9.575052e-07      7.053987e-05
+    let z = 1.071732e-02 + 4.181450e+00 * diff.kdr + 9.575052e-07 * diff.playTime + 7.053987e-05 * diff.score;
+    return 1/(1+Math.exp(-z))
   }
 
   averageStats(players) {
