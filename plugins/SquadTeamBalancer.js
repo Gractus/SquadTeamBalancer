@@ -1,5 +1,4 @@
 import BasePlugin from "./base-plugin.js";
-import MySquadStatsUtils from "../utils/mysquadstats-utils.js";
 import { LogisticRegressionRater, RandomRater, shouldBalance, playersToSquadSteamIDArrays, calculateTargetTeams, swapToTargetTeams } from "../utils/squad-balancer-utils.js";
 
 export default class SquadTeamBalancer extends BasePlugin {
@@ -73,42 +72,6 @@ export default class SquadTeamBalancer extends BasePlugin {
           "Maximum time in seconds after round end to complete balance operations",
         default: 45,
       },
-      accessToken: {
-        required: false,
-        description: "MySquadStats API access token.",
-        default: "",
-      },
-      apiRequestRetries: {
-        required: false,
-        description: "Number of retries for API requests.",
-        default: 3,
-      },
-      apiRequestTimeout: {
-        required: false,
-        description: "Timeout in milliseconds for API requests.",
-        default: 10000,
-      },
-      cachePlayerData: {
-        required: false,
-        description:
-          "Whether to cache player skill data between server restarts.",
-        default: true,
-      },
-      cacheExpiry: {
-        required: false,
-        description: "Hours before cached player data expires.",
-        default: 24,
-      },
-      statsDatabaseFile: {
-        required: false,
-        description: "File path for cached player data.",
-        default: "./playerSkillData.json",
-      },
-      devLoggingMode: {
-        required: false,
-        description: "Enable detailed team composition logging at round end",
-        default: false,
-      },
       logFilePath: {
         required: false,
         description: "File path for dev mode logging.",
@@ -143,18 +106,6 @@ export default class SquadTeamBalancer extends BasePlugin {
     this.onRoundEnd = this.onRoundEnd.bind(this);
     this.onPlayerConnect = this.onPlayerConnect.bind(this);
 
-
-    this.squadStatsUtils = new MySquadStatsUtils({
-      apiRequestRetries: this.options.apiRequestRetries,
-      apiRequestTimeout: this.options.apiRequestTimeout,
-      cachePlayerData: this.options.cachePlayerData,
-      cacheExpiry: this.options.cacheExpiry,
-      accessToken: this.options.accessToken,
-      playerListFile: this.options.playerListFile,
-      verboseLogging: this.options.devLoggingMode,
-      logger: this,
-    });
-
     this.balancingModes = {
       "squads": {
         description: "Minimal moves, keeping squads together.",
@@ -173,11 +124,16 @@ export default class SquadTeamBalancer extends BasePlugin {
         aliases: ["playersfull", "playerfull", "fullplayers", "fullplayer"],
       },
     };
+
+    this.MSS;
   }
 
   async mount() {
-    this.shuffleInProgress = false;
-    this.server.randomiser = false;
+    this.MSS = this.server.plugins.find(p => p instanceof MySquadStatsCache);
+    if (!this.MSS) {
+      throw new Error('MySquadStatsCache is not enabled.')
+    };
+
     this.server.on(`CHAT_COMMAND:${this.options.checkCommand}`, this.onCheckCommand);
     this.server.on(`CHAT_COMMAND:${this.options.forceBalanceCommand}`, this.onForceBalanceCommand);
     this.server.on(`CHAT_COMMAND:${this.options.balanceModeCommand}`, this.onBalanceModeCommand);
@@ -274,7 +230,7 @@ export default class SquadTeamBalancer extends BasePlugin {
     if (info.chat !== "ChatAdmin") return;
 
     const players = this.server.players.slice(0);
-    const rater = await this.getRater();
+    const rater = await this.getRater(players);
     const team1 = players.filter(player => player.teamID == 1);
     const team2 = players.filter(player => player.teamID == 2);
     const winProbability = rater.winProbability(team1, team2);
@@ -299,7 +255,7 @@ export default class SquadTeamBalancer extends BasePlugin {
 
     await this.server.updatePlayerList();
     const players = this.server.players.slice(0);
-    const rater = await this.getRater();
+    const rater = await this.getRater(players);
     await this.balanceTeams(players, rater);
   }
 
@@ -309,7 +265,7 @@ export default class SquadTeamBalancer extends BasePlugin {
 
     await this.server.updatePlayerList();
     const players = this.server.players.slice(0);
-    let rater = await this.getRater();
+    let rater = await this.getRater(players);
 
     this.logInfo(`Round end players: ${players.length}`);
     this.logDebug(`Auto-balance mode: ${this.options.autoBalanceEnabled}, playerThreshold: ${this.options.playerThreshold}, Auto-balance threshold: ${this.options.autoBalanceThreshold}`);
@@ -329,7 +285,7 @@ export default class SquadTeamBalancer extends BasePlugin {
   async onPlayerConnect(data) {
     // this.squadStatsUtils.queuePlayerRefresh(data.steamID)
     this.logDebug(`New player connected, steamID: ${data.steamID}. Requested cache refresh.`);
-    await this.squadStatsUtils.fetchPlayerData(data.steamID);
+    await this.MSS.fetchPlayerData(data.steamID);
   }
 
   async onNewGame() {
@@ -396,7 +352,7 @@ export default class SquadTeamBalancer extends BasePlugin {
 
     await this.server.updatePlayerList();
     players = this.server.players.slice(0);
-    rater = await this.getRater();
+    rater = await this.getRater(players);
 
     const team1After = players.filter(player => player.teamID == 1).map(player => player.steamID);
     const team2After = players.filter(player => player.teamID == 2).map(player => player.steamID);
@@ -406,15 +362,20 @@ export default class SquadTeamBalancer extends BasePlugin {
     this.logInfo(`Difference from target Team2: ${team2After.filter(x => !team2.includes(x))}`);
   }
 
-  async getRater() {
+  async getRater(players) {
     switch (this.ratingMode) {
       case "logisticRegression": {
-        let players = this.server.players.slice(0);
-        let playerStats = this.squadStatsUtils.getPlayerStats(players);
-        if (playerStats.length < players.length) {
-          this.logWarn(`Rater is missing data for: ${!players.map(p => p.steamID).filter(x => Object.keys(playerStats).includes(x))}`);
+        try {
+          let steamIDs = players.map(player => player.steamID);
+          let playerStats = this.MSS.getManyFromCache(steamIDs);
+          if (playerStats.length < players.length) {
+            this.logWarn(`Rater is missing data for: ${!steamIDs.filter(x => Object.keys(playerStats).includes(x))}`);
+          }
+          return new LogisticRegressionRater(playerStats);
+        } catch (e) {
+          this.logError(`Encountered error when trying to load player stats from MySquadStatsCache plugin. ${e.message}`);
+          throw new Error(`Encountered error when trying to load player stats from MySquadStatsCache plugin. ${e.message}`);
         }
-        return new LogisticRegressionRater(playerStats);
       }
       case "random": return new RandomRater()
       default: return new RandomRater()
