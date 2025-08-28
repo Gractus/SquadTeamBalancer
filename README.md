@@ -1,51 +1,54 @@
-# SquadTeamBalancer Plugin
+# SquadTeamBalancer SquadJS Plugin (WIP)
 
-The `SquadTeamBalancer` plugin provides an advanced system for balancing teams based on player skill ratings. It uses player Elo ratings to create fair and balanced teams while prioritizing squad integrity.
+The `SquadTeamBalancer` plugin provides an advanced system for optimally balancing teams based on player skill ratings.
 
-## Core Files
-
-- **SquadTeamBalancer.js**: The main plugin file that handles team balancing operations, processes admin commands, and manages the execution timing after round end.
-- **mysquadstats-utils.js**: A utility class that interacts with the mysquadstats.com API to fetch player statistics and calculate Elo ratings based on win rates and kill/death ratios.
-- **squad-balancer-utils.js**: A utility class that handles the mathematical aspects of team balancing, calculating optimal squad movements to achieve skill balance between teams.
+Using data from mysquadstats.com and analysing the data over thousands of matchs and tens of thousands of players it is possible to predict the outcome of a squad match with over 85% confidence for almost half of all matches based entirely on the difference between average team stats. This plugin works to improve the quality of the average squad match by stopping steam rolls before they happen.
 
 ## Features
 
-- **Skill-Based Balancing**: Uses player Elo ratings to create optimally balanced teams based on actual player performance data.
-- **Balancing Modes**: Offers two balancing modes - minimal changes to achieve balance or a more extensive shuffle while maintaining balance.
-- **Squad Integrity**: Prioritizes keeping squads together during team balancing.
-- **Round-End Timing**: Executes balancing after round end with configurable timing windows, allowing players to view end-of-round stats before being swapped.
 - **API Integration**: Connects with mysquadstats.com to obtain current player statistics for accurate skill ratings.
+- **Skill-Based Balancing**: Uses player ratings to create optimally balanced teams based on individual player performance data.
+- **Rating System Flexibility**: Can be expanded to work with new rating system.
+- **Minimal Balancing Mode**: Finds new team composition with minimal player swaps to achieve desired level of balance.
+- **Squad Integrity**: Optionally keeps squads together during shuffle operations.
+- **Clan Integrity**: Optionally keeps registered clans or friend groups together during shuffle operations. (Coming as soon as someone creates a database)
+- **Round-End Timing**: Executes balancing after round end with configurable timing windows, allowing players to view end-of-round stats before being swapped.
 - **Cached Player Data**: Caches player skill data to reduce API calls and handle situations when the API is unavailable.
-- **Failure Recovery**: Handles failed player swaps and provides detailed reports on balancing operations.
-- **Admin Notifications**: Comprehensive admin notifications showing balance results, Elo differences, and any issues encountered.
-- **Balance Checking**: Allows admins to check team balance at any time without initiating a swap.
-- **Detailed Logging**: Option to enable detailed logging of team compositions, ELO data and balance operations at round end.
+- **Balance Checking**: Allows admins to check team balance status at any time with chat commands.
+- **Detailed Logging**: (Coming Soon) Track game balance, win prediction accuracy, and log stats for future improvements.
+- **Failure Recovery**: (Coming Soon) Handles failed player swaps and provides detailed reports on balancing operations.
 
 ## Admin Commands
 
-- **Balance Teams (Minimal Changes)**: Initiates team balancing with minimal changes to achieve balance.
-  - Default Command: `!randomisebalance`
-  - Aliases: `!rbalance`, `!randombalance`
-  - **Usage**: Type the command in admin chat to schedule balancing for the next round end.
+- **Check Balance**: Checks the current balance of teams without making any changes.
+  - Default Command: `!balancecheck`
+  - **Usage**: Type the command in admin chat to see the current win probabilities per team using currently set rating system.
 
-- **Full Team Shuffle**: Initiates a more extensive team shuffle while still maintaining skill balance.
-  - Default Command: `!randomisefull`
-  - Aliases: `!rfull`, `!randomfull`
-  - **Usage**: Type the command in admin chat to schedule a full shuffle for the next round end.
+- **Force Balance**: Forces immediate team balance during active match.
+  - Default Command: `!forcebalance`
+  - **Usage**: Type the command in admin chat, requires confirmation to avoid accidental upsets.
 
-- **Check Team Balance**: Checks the current balance of teams without making any changes.
-  - Default Command: `!randomisecheck`
-  - Aliases: `!rcheck`, `!randomcheck`
-  - **Usage**: Type the command in admin chat to see the current Elo difference between teams.
+- **Toggle Auto-Balancing**: Forces immediate team balance during active match.
+  - Default Command: `!autobalance`
+  - **Usage**: Type the command in admin chat followed by the desired mode e.g. `!autobalance true`
+  - **Options**:
+    * `true`
+    * `false`
 
-- **Stop Balancing**: Cancels any scheduled team balancing operations.
-  - Default Command: `!randomisestop`
-  - Aliases: `!rstop`, `!randomstop`
-  - **Usage**: Type the command in admin chat to cancel scheduled balancing.
+- **Set Balancing Mode**: Forces immediate execution of pending balance operations.
+  - Default Command: `!balancemode`
+  - **Usage**: Type the command in admin chat followed by the desired mode e.g. `!balancemode squadsFull`.
+  - **Options**:
+    * `squads` - minimal swaps while preserving squads
+    * `squadsFull` - maximal balance while preserving squads
+    * `players` - minimal swaps splitting squads
+    * `playersFull` - absolute maximal balance
 
-- **Force Balancing**: Forces immediate execution of pending balance operations.
-  - Default Command: `!forcerandomise`
-  - **Usage**: Type the command in admin chat to immediately execute balancing.
+## Core Files
+
+- **SquadTeamBalancer.js**: The main plugin file that handles game events and admin commands by running appropriate actions.
+- **squad-balancer-utils.js**: Library including team balance calculation logic, player team swap utilities, and rating system classes.
+- **mysquadstats-utils.js**: A utility class that interacts with the mysquadstats.com API to fetch player stats.
 
 ## Configuration Options
 **WARNING**
@@ -55,73 +58,26 @@ The `SquadTeamBalancer` plugin provides an advanced system for balancing teams b
 
 The following options can be configured in the plugin's configuration file:
 
-- **balanceCommand**: The command used to balance teams with minimal changes.
-  - **Default**: `randomisebalance`
-
 - **minExecutionTime**: Minimum time in seconds to wait after round end before executing balance operations.
   - **Default**: `20`
 
-- **maxExecutionTime**: Maximum time in seconds after round end to complete balance operations. 
+- **maxExecutionTime**: Maximum time in seconds after round end to complete balance operations.
   - **Default**: `45`
 
 - **adminNotificationsEnabled**: Whether to send notifications to admins about command usage and errors.
   - **Default**: `true`
 
-- **balanceCommandAliases**: Alternative commands for balance mode.
-  - **Default**: `["rbalance", "randombalance"]`
-
-- **fullShuffleCommand**: The command used to extensively shuffle teams while maintaining balance.
-  - **Default**: `randomisefull`
-
-- **fullShuffleCommandAliases**: Alternative commands for full shuffle mode.
-  - **Default**: `["rfull", "randomfull"]`
-
 - **checkCommand**: The command used to check current ELO balance without swapping.
-  - **Default**: `randomisecheck`
-
-- **checkCommandAliases**: Alternative commands for checking team balance.
-  - **Default**: `["rcheck", "randomcheck"]`
-
-- **stopCommand**: The command used to stop any active team shuffling.
-  - **Default**: `randomisestop`
-
-- **stopCommandAliases**: Alternative commands to stop shuffling.
-  - **Default**: `["rstop", "randomstop"]`
+  - **Default**: `balancecheck`
 
 - **forceCommand**: The command used to force immediate execution of pending shuffles.
-  - **Default**: `forcerandomise`
-
-- **startBalanceMessage**: The message broadcast when balance mode is activated.
-  - **Default**: `We will be balancing teams during end match results. This system is automated.`
-
-- **startFullShuffleMessage**: The message broadcast when full shuffle mode is activated.
-  - **Default**: `We will be shuffling teams during end match results. We will attempt to keep you together with your squad. This system is automated.`
-
-- **swapWarningMessage**: Message sent to players when they are swapped.
-  - **Default**: `You have been automatically swapped to balance the teams based on skill ratings.`
-
-- **emergencyBalanceMessage**: Message sent to players when they are swapped during emergency rebalancing.
-  - **Default**: `You have been swapped to balance teams (emergency rebalance)`
+  - **Default**: `forcebalance`
 
 - **accessToken**: MySquadStats API access token.
   - **Default**: `""`
 
-- **baseEloRating**: Default Elo rating for players without data.
-  - **Default**: `1500`
-
-- **maxEloRatingDifference**: Maximum acceptable difference in average Elo between teams.
-  - **Default**: `100`
-
-- **fullShufflePercentage**: Percentage of squads to move in full shuffle mode.
-  - **Default**: `40`
-
 - **playerThreshold**: Minimum players needed to perform skill-based balancing.
   - **Default**: `20`
-
-- **devLoggingMode**: Enable detailed team composition logging at round end.
-  - **Default**: `false`
-  - When enabled, logs detailed information about team composition, ELO ratings, squad leaders, and unassigned players at round end.
-  - Also logs information about ticket counts and team victory status.
 
 - **logFilePath**: File path for dev mode logging.
   - **Default**: `./balance_log.txt`
@@ -132,32 +88,9 @@ The following options can be configured in the plugin's configuration file:
 {
   "plugin": "SquadTeamBalancer",
   "enabled": true,
-  "balanceCommand": "randomisebalance",
   "minExecutionTime": 15,
   "maxExecutionTime": 45,
-  "balanceCommandAliases": ["rbalance", "randombalance"],
-  "fullShuffleCommand": "randomisefull",
-  "fullShuffleCommandAliases": ["rfull", "randomfull"],
-  "checkCommand": "randomisecheck",
-  "checkCommandAliases": ["rcheck", "randomcheck"],
-  "checkingMessage": "Fetching current ELO ratings for teams...",
-  "stopCommand": "randomisestop",
-  "stopCommandAliases": ["rstop", "randomstop"],
-  "forceCommand": "forcerandomise",
-  "startBalanceMessage": "We will be balancing teams during end match results. This system is automated.",
-  "startFullShuffleMessage": "We will be shuffling teams during end match results. We will attempt to keep you together with your squad. This system is automated.",
-  "stopMessage": "Team balancing has been cancelled.",
-  "intervalMessage": "Team balancing will occur during end match results. This system is automated.",
-  "enableIntervalBroadcast": true,
-  "intervalTime": 5,
-  "updateSquadListInterval": 5,
-  "swapWarningMessage": "You have been automatically swapped to balance the teams based on skill ratings.",
-  "emergencyBalanceMessage": "You have been swapped to balance teams (emergency rebalance)",
-  "balanceCompleteMessage": "Balance completed\n| Swapped {swappedPlayers} players\n| Team 1: {team1Count} players (avg Elo: {team1Elo})\n| Team 2: {team2Count} players (avg Elo: {team2Elo})",
-  "accessToken": "",
-  "baseEloRating": 1500,
-  "maxEloRatingDifference": 100,
-  "fullShufflePercentage": 40,
+  "accessToken": "YOURTOKENHERE",
   "playerThreshold": 20,
   "cachePlayerData": true,
   "cacheExpiry": 24,
