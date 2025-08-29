@@ -1,5 +1,5 @@
 import BasePlugin from "./base-plugin.js";
-import { LogisticRegressionRater, RandomRater, shouldBalance, playersToSquadSteamIDArrays, calculateTargetTeams, swapToTargetTeams } from "../utils/squad-balancer-utils.js";
+import { LogisticRegressionRater, RandomRater, Balancer, shouldBalance, playersToSquadSteamIDArrays, swapToTargetTeams } from "../utils/squad-balancer-utils.js";
 
 export default class SquadTeamBalancer extends BasePlugin {
   static get description() {
@@ -33,34 +33,62 @@ export default class SquadTeamBalancer extends BasePlugin {
           "Command to toggle auto-balance on/off.",
         default: "autobalance",
       },
-      balanceModeCommand: {
+      squadsToggleCommand: {
         required: false,
-        description: "Command to change team balance mode.",
-        default: "balancemode",
+        description:
+          "Command to toggle squad preservation on/off.",
+        default: "keepsquads",
       },
-      balanceMode: {
+      clansToggleCommand: {
         required: false,
-        description: "Team balancing mode to use.",
-        default: "squadsFull",
+        description:
+          "Command to toggle clan preservation on/off.",
+        default: "keepclans",
+      },
+      minMovesToggleCommand: {
+        required: false,
+        description:
+          "Command to toggle minMoves mode on/off.",
+        default: "minmoves",
+      },
+      preserveSquads: {
+        required: false,
+        description: "Preserve squads during balancing operations.",
+        default: true,
+      },
+      preserveClans: {
+        required: false,
+        description: "Preserve clans during balancing operations.",
+        default: true,
+      },
+      minMoves: {
+        required: false,
+        description: "Apply minimum player swaps to reach autoBalanceThreshold",
+        default: false,
+      },
+      autoBalanceEnabled: {
+        required: false,
+        description:
+        "Auto balance teams at the end of each match if balance threshold is exceeded.",
+        default: true,
+      },
+      autoBalanceThreshold: {
+        required: false,
+        description:
+        "Trigger threshold for auto balance, value is probability of one side winning e.g. 75%.",
+        default: 0.75,
       },
       ratingMode: {
         required: false,
         description: "Skill rating system to use.",
         default: "logisticregression",
       },
-      autoBalanceEnabled: {
+      testMode: {
         required: false,
-        description:
-          "Auto balance teams at the end of each match if balance threshold is exceeded.",
+        description: "If set to true no player swaps will be applied, only balance calcuations and logging.",
         default: true,
       },
-      autoBalanceThreshold: {
-        required: false,
-        description:
-          "Trigger threshold for auto balance, value is probability of one side winning e.g. 75%.",
-        default: 0.75,
-      },
-      minExecutionTime: {
+      roundEndDelay: {
         required: false,
         description:
           "Minimum time in seconds to wait after round end before executing balance operations",
@@ -98,9 +126,12 @@ export default class SquadTeamBalancer extends BasePlugin {
     this.balanceInProgress = false;
 
     this.onCheckCommand = this.onCheckCommand.bind(this);
+    this.onCheckModeCommand = this.onCheckModeCommand.bind(this);
     this.onForceBalanceCommand = this.onForceBalanceCommand.bind(this);
     this.onAutoBalanceToggleCommand = this.onAutoBalanceToggleCommand.bind(this);
-    this.onBalanceModeCommand = this.onBalanceModeCommand.bind(this);
+    this.onSquadsToggleCommand = this.onSquadsToggleCommand.bind(this);
+    this.onClansToggleCommand = this.onClansToggleCommand.bind(this);
+    this.onMinMovesToggleCommand = this.onMinMovesToggleCommand.bind(this);
 
     this.onNewGame = this.onNewGame.bind(this);
     this.onRoundEnd = this.onRoundEnd.bind(this);
@@ -135,8 +166,11 @@ export default class SquadTeamBalancer extends BasePlugin {
     };
 
     this.server.on(`CHAT_COMMAND:${this.options.checkCommand}`, this.onCheckCommand);
+    this.server.on(`CHAT_COMMAND:${this.options.checkModeCommand}`, this.onCheckModeCommand);
     this.server.on(`CHAT_COMMAND:${this.options.forceBalanceCommand}`, this.onForceBalanceCommand);
-    this.server.on(`CHAT_COMMAND:${this.options.balanceModeCommand}`, this.onBalanceModeCommand);
+    this.server.on(`CHAT_COMMAND:${this.options.squadsToggleCommand}`, this.onSquadsToggleCommand);
+    this.server.on(`CHAT_COMMAND:${this.options.clansToggleCommand}`, this.onClansToggleCommand);
+    this.server.on(`CHAT_COMMAND:${this.options.minMovesToggleCommand}`, this.onMinMovesToggleCommand);
     this.server.on(`CHAT_COMMAND:${this.options.autoBalanceToggleCommand}`, this.onAutoBalanceToggleCommand);
 
     this.server.on("NEW_GAME", this.onNewGame);
@@ -150,8 +184,11 @@ export default class SquadTeamBalancer extends BasePlugin {
     this.server.randomiser = false;
 
     this.server.removeEventListener(`CHAT_COMMAND:${this.options.checkCommand}`, this.onCheckCommand);
+    this.server.removeEventListener(`CHAT_COMMAND:${this.options.checkModeCommand}`, this.onCheckModeCommand);
     this.server.removeEventListener(`CHAT_COMMAND:${this.options.forceBalanceCommand}`, this.onForceBalanceCommand);
-    this.server.removeEventListener(`CHAT_COMMAND:${this.options.balanceModeCommand}`, this.onBalanceModeCommand);
+    this.server.removeEventListener(`CHAT_COMMAND:${this.options.squadsToggleCommand}`, this.onSquadsToggleCommand);
+    this.server.removeEventListener(`CHAT_COMMAND:${this.options.clansToggleCommand}`, this.onClansToggleCommand);
+    this.server.removeEventListener(`CHAT_COMMAND:${this.options.minMovesToggleCommand}`, this.onMinMovesToggleCommand);
     this.server.removeEventListener(`CHAT_COMMAND:${this.options.autoBalanceToggleCommand}`, this.onAutoBalanceToggleCommand);
 
     this.server.removeEventListener("NEW_GAME", this.onNewGame);
@@ -161,69 +198,105 @@ export default class SquadTeamBalancer extends BasePlugin {
     this.logInfo("SquadTeamBalancer plugin unmounted");
   }
 
+  get balanceMode() {
+    return `Squads: ${this.options.preserveSquads} Clans: ${this.options.preserveClans} MinMoves: ${this.options.minMoves}`
+  }
+
+  get config() {
+    return `AutoBalance: ${this.options.autoBalanceEnabled} KeepSquads: ${this.options.preserveSquads} KeepClans: ${this.options.preserveClans} MinMoves: ${this.options.minMoves}`
+  }
+
   async onAutoBalanceToggleCommand(info) {
     if (info.chat !== "ChatAdmin") return;
 
-    const message = String().toLowerCase(info.message);
-    let newMode = null;
+    let newSetting = await this.#toggleCommand(info);
+    if (newSetting == null) return
 
-    if (message in ['on', 'enabled', 'active', 'yes', '1', 'true']) {
-      newMode = true;
-    } else if (message in ['off', 'disabled', 'inactive', 'no', '0', 'false']) {
-      newMode = false;
-    } else {
-      this.logDebug(`Auto balance toggle command recieved, but option was invalid: "${message}".`);
-      await this.warnPlayer(info.player.eosID, 'Invalid option, try "on" or "off".');
-      return
-    }
-
-    if (newMode === this.options.autoBalanceEnabled) {
+    if (newSetting === this.options.autoBalanceEnabled) {
       this.logDebug(`Auto balance toggle command recieved, but mode is already set to "${this.options.autoBalanceEnabled}".`);
       await this.warnPlayer(info.player.eosID, `Mode is already set to "${this.options.autoBalanceEnabled}"`);
       return
     }
 
-    this.options.balanceMode = newMode;
+    this.options.balanceMode = newSetting;
 
     this.logInfo(`Auto balance toggle command recieved, mode changed to "${this.options.autoBalanceEnabled}"`);
     await this.notifyAdmins(`Admin ${info.name} toggled auto-balancing mode to "${this.options.autoBalanceEnabled}"`);
   }
 
-  async onBalanceModeCommand(info) {
+  async onSquadsToggleCommand(info) {
     if (info.chat !== "ChatAdmin") return;
 
-    const message = String().toLowerCase(info.message);
-    let newMode = null;
+    let newSetting = await this.#toggleCommand(info);
+    if (newSetting == null) return
 
-    switch (true) {
-      case message in this.balancingModes.squads.aliases:
-        newMode = "squads";
-        break;
-      case message in this.balancingModes.players.aliases:
-        newMode = "players";
-        break;
-      case message in this.balancingModes.squadsFull.aliases:
-        newMode = "squadsFull";
-        break;
-      case message in this.balancingModes.playersFull.aliases:
-        newMode = "playersFull";
-        break;
-      default:
-        this.logDebug(`Balance mode command recieved, invalid option ${info.message}`);
-        await this.warnPlayer(info.player.eosID, "Must use squads, players, squadsFull, playersFull");
-        return
-    }
-
-    if (newMode === this.options.balanceMode) {
-      this.logDebug(`Balance mode command recieved, but mode is already set to "${this.options.balanceMode}".`);
-      await this.warnPlayer(info.player.eosID, `Mode is already set to "${this.options.balanceMode}"`);
+    if (newSetting === this.options.preserveSquads) {
+      this.logDebug(`Preserve squads toggle command recieved, but mode is already set to "${this.options.preserveSquads}".`);
+      await this.warnPlayer(info.player.eosID, `Mode is already set to "${this.options.preserveSquads}"`);
       return
     }
 
-    this.options.balanceMode = newMode;
+    this.options.preserveSquads = newSetting;
 
-    this.logInfo(`Balance mode command recieved, mode changed to "${this.options.balanceMode}"`);
-    await this.notifyAdmins(`Admin ${info.name} changed balancing mode to "${this.options.balanceMode}"`);
+    this.logInfo(`Preserve squads toggle command recieved, mode changed to "${this.options.preserveSquads}"`);
+    await this.notifyAdmins(`Admin ${info.name} toggled squad-preservation to "${this.options.preserveSquads}"`);
+  }
+
+  async onClansToggleCommand(info) {
+    if (info.chat !== "ChatAdmin") return;
+
+    let newSetting = await this.#toggleCommand(info);
+    if (newSetting == null) return
+
+    if (newSetting === this.options.preserveClans) {
+      this.logDebug(`Preserve clans toggle command recieved, but mode is already set to "${this.options.preserveClans}".`);
+      await this.warnPlayer(info.player.eosID, `Mode is already set to "${this.options.preserveClans}"`);
+      return
+    }
+
+    this.options.preserveClans = newSetting;
+
+    this.logInfo(`Preserve clans toggle command recieved, mode changed to "${this.options.preserveClans}"`);
+    await this.notifyAdmins(`Admin ${info.name} toggled clan-preservation to "${this.options.preserveClans}"`);
+  }
+
+  async onMinMovesToggleCommand(info) {
+    if (info.chat !== "ChatAdmin") return;
+
+    let newSetting = await this.#toggleCommand(info);
+    if (newSetting == null) return
+
+    if (newSetting === this.options.minMoves) {
+      this.logDebug(`minMoves toggle command recieved, but mode is already set to "${this.options.minMoves}".`);
+      await this.warnPlayer(info.player.eosID, `minMoves is already set to "${this.options.minMoves}"`);
+      return
+    }
+
+    this.options.minMoves = newSetting;
+
+    this.logInfo(`minMoves toggle command recieved, mode changed to "${this.options.minMoves}"`);
+    await this.notifyAdmins(`Admin ${info.name} toggled minMoves mode to "${this.options.minMoves}"`);
+  }
+
+  async #toggleCommand(info) {
+    const message = String().toLowerCase(info.message);
+    let option = null;
+
+    if (message in ['on', 'enabled', 'active', 'yes', '1', 'true']) {
+      option = true;
+    } else if (message in ['off', 'disabled', 'inactive', 'no', '0', 'false']) {
+      option = false;
+    } else {
+      this.logDebug(`Toggle command recieved, but option was invalid: "${message}".`);
+      await this.warnPlayer(info.player.eosID, 'Invalid option, try "on" or "off".');
+    }
+    return option
+  }
+
+  async onCheckModeCommand(info) {
+    if (info.chat !== "ChatAdmin") return;
+
+    await this.warnPlayer(info.player.eosID, this.config)
   }
 
   async onCheckCommand(info) {
@@ -262,6 +335,8 @@ export default class SquadTeamBalancer extends BasePlugin {
   async onRoundEnd() {
     this.logDebug('Round Ended.');
     this.squadStatsUtils.clearRefreshQueue();
+
+    await new Promise((resolve) => setTimeout(resolve, 1000 * this.options.roundEndDelay));
 
     await this.server.updatePlayerList();
     const players = this.server.players.slice(0);
@@ -308,39 +383,35 @@ export default class SquadTeamBalancer extends BasePlugin {
 
     let team1 = [];
     let team2 = [];
-    let squads = playersToSquadSteamIDArrays(players);
+    let squads = [];
     let clans = [];
+    if (this.options.preserveSquads) {
+      squads = playersToSquadSteamIDArrays(players);
+    }
+    if (this.options.preserveClans) {
+      // TODO Implement finding clans.
+      clans = [];
+    }
+    let balancer = new Balancer(rater, players, squads, clans);
     try {
-      switch (this.options.balanceMode) {
-        case "players": {
-          ({ team1, team2 } = calculateTargetTeams(rater, players, squads = [], clans, threshold = this.autoBalanceThreshold, minMoves = true));
-          break
-        }
-        case "playersFull": {
-          ({ team1, team2 } = calculateTargetTeams(rater, players, squads = [], clans));
-          break
-        }
-        case "squads": {
-          ({ team1, team2 } = calculateTargetTeams(rater, players, squads, clans, threshold = this.autoBalanceThreshold, minMoves = true));
-          break
-        }
-        case "squadsFull": {
-          let squads = playersToSquadSteamIDArrays(players);
-          ({ team1, team2 } = calculateTargetTeams(rater, players, squads, clans));
-          break
-        }
-        default: {
-          throw new Error(`Invalid balancing mode: ${this.options.balanceMode}.`)
-        }
-      }
+      ({ team1, team2 } = balancer.calculateTargetTeams(this.autoBalanceThreshold, this.options.minMoves));
     } catch (e) {
       this.balanceInProgress = false;
       this.logError(`Error occured during team balancing calculation: ${e.message}`);
-      await this.notifyAdmins(`Balancing calculation failed ${e.message}`);
+      await this.notifyAdmins(`Balancing calculation failed. ${e.message}`);
+      return
     }
 
     this.logDebug(`Target team1: ${team1}`);
     this.logDebug(`Target team2: ${team2}`);
+
+    if (this.options.testMode) {
+      let targetWinProbability = rater.winProbabilitySteamIDs(team1, team2);
+      this.logInfo(`Predicted target team probabilities, Team1: ${targetWinProbability.toFixed(2)}, Team2: ${(1 - targetWinProbability).toFixed(2)}, RatingMode: ${this.options.ratingMode}, Balance Mode: ${this.balanceMode}`);
+      await this.notifyAdmins(`Testing mode: Target team probabilities `)
+      return
+    }
+
 
     try {
       await swapToTargetTeams(server, team1, team2);
