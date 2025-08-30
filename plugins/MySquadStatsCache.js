@@ -185,9 +185,8 @@ export default class MySquadStatsCache extends BasePlugin {
     if (this.options.accessToken) {
       url.searchParams.append("accessToken", this.options.accessToken);
     }
-    const fullUrl = url.toString();
 
-    const safeUrl = fullUrl.replace(this.options.accessToken, "[ACCESS_TOKEN]");
+    const safeUrl = url.toString().replace(this.options.accessToken, "[ACCESS_TOKEN]");
 
     let lastError;
     let attempts = 0;
@@ -197,7 +196,7 @@ export default class MySquadStatsCache extends BasePlugin {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), this.options.apiRequestTimeout);
 
-        const response = await fetch(fullUrl, {
+        const response = await fetch(url, {
           signal: controller.signal,
           headers: { "User-Agent": this.options.userAgent },
         });
