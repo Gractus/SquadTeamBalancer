@@ -1,5 +1,6 @@
 import BasePlugin from "./base-plugin.js";
-import { LogisticRegressionRater, RandomRater, Balancer, shouldBalance, playersToSquadSteamIDArrays, swapToTargetTeams } from "../utils/squad-balancer-utils.js";
+import MySquadStatsCache from "./MySquadStatsCache.js"
+import { LogisticRegressionRater, RandomRater, Balancer, shouldBalance, playersToTeamsSteamIDs, playersToSquadSteamIDArrays, swapToTargetTeams } from "../utils/squad-balancer-utils.js";
 
 export default class SquadTeamBalancer extends BasePlugin {
   static get description() {
@@ -285,9 +286,7 @@ export default class SquadTeamBalancer extends BasePlugin {
 
     const players = this.server.players.slice(0);
     const rater = await this.getRater(players);
-    const team1 = players.filter(player => player.teamID == 1);
-    const team2 = players.filter(player => player.teamID == 2);
-    const winProbability = rater.winProbability(team1, team2);
+    const winProbability = rater.winProbabilityPlayers(players);
 
     this.logInfo(`Admin ${info.name} requested balance check. Team1: ${winProbability.toFixed(2)}, Team2: ${(1 - winProbability).toFixed(2)}`);
     await this.notifyAdmins(`Admin ${info.name} requested balance check. Team1: ${winProbability.toFixed(2)}, Team2: ${(1 - winProbability).toFixed(2)}`);
@@ -331,9 +330,7 @@ export default class SquadTeamBalancer extends BasePlugin {
       await this.broadcast(this.options.startBalanceBroadcast)
       await this.balanceTeams(players, rater);
     } else {
-      const team1 = players.filter(player => player.teamID == 1);
-      const team2 = players.filter(player => player.teamID == 2);
-      const winProbability = rater.winProbability(team1, team2);
+      const winProbability = rater.winProbabilityPlayers(players);
       this.logInfo(`Auto-balance skipped. Win probabilities, Team1: ${winProbability.toFixed(2)}, Team2: ${(1 - winProbability).toFixed(2)}, RatingMode: ${this.options.ratingMode}`);
     }
   }
@@ -355,9 +352,8 @@ export default class SquadTeamBalancer extends BasePlugin {
     }
     this.balanceInProgress = true;
 
-    const team1Before = players.filter(player => player.teamID == 1).map(player => player.steamID);
-    const team2Before = players.filter(player => player.teamID == 2).map(player => player.steamID);
-    const winProbability = rater.winProbability(team1Before, team2Before);
+    const {team1Before, team2Before} = playersToTeamsSteamIDs(players);
+    const winProbability = rater.winProbabilitySteamIDs(team1Before, team2Before);
     this.logDebug(`Team1 before: ${team1Before}`);
     this.logDebug(`Team2 before: ${team2Before}`);
     this.logInfo(`Pre-balance probabilities, Team1: ${winProbability.toFixed(2)}, Team2: ${(1 - winProbability).toFixed(2)}, RatingMode: ${this.options.ratingMode}`);
@@ -393,7 +389,6 @@ export default class SquadTeamBalancer extends BasePlugin {
       return
     }
 
-
     try {
       await swapToTargetTeams(server, team1, team2);
     } catch (e) {
@@ -406,10 +401,9 @@ export default class SquadTeamBalancer extends BasePlugin {
     players = this.server.players.slice(0);
     rater = await this.getRater(players);
 
-    const team1After = players.filter(player => player.teamID == 1).map(player => player.steamID);
-    const team2After = players.filter(player => player.teamID == 2).map(player => player.steamID);
-    winProbability = rater.winProbability(team1After, team2After);
-    this.logInfo(`Post-balance probabilities, Team1: ${winProbability.toFixed(2)}, Team2: ${(1 - winProbability).toFixed(2)}, RatingMode: ${this.options.ratingMode}, Balance Mode: ${this.options.balanceMode}`);
+    const {team1After, team2After} = playersToTeamsSteamIDs(players);
+    winProbability = rater.winProbabilitySteamIDs(team1After, team2After);
+    this.logInfo(`Post-balance probabilities, Team1: ${winProbability.toFixed(2)}, Team2: ${(1 - winProbability).toFixed(2)}, RatingMode: ${this.options.ratingMode}, Balance Mode: ${this.balanceMode}`);
     this.logInfo(`Difference from target Team1: ${team2After.filter(x => !team1.includes(x))}`);
     this.logInfo(`Difference from target Team2: ${team2After.filter(x => !team2.includes(x))}`);
   }

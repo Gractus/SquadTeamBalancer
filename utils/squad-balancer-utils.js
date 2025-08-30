@@ -41,35 +41,42 @@ export class LogisticRegressionRater {
       console.log(`Missing stats for steamID: ${steamID}, using default rating.`);
       return 0.5
     }
-    return this.logisticRegressionFormula(playerStats, this.avgStats)
+    return this.#logisticRegressionFormula(playerStats, this.avgStats)
   }
 
   rateGroup(steamIDs) {
-    const average = this.averageStats(steamIDs);
-    return this.logisticRegressionFormula(average, this.avgStats)
+    const average = this.#averageStats(steamIDs);
+    return this.#logisticRegressionFormula(average, this.avgStats)
   }
 
   /** Input lists of players.
    * Calculate probability of teamA winning over teamB. */
   winProbability(teamA, teamB) {
-    const averageA = this.averageStats(teamA.map(player => player.steamID));
-    const averageB = this.averageStats(teamB.map(player => player.steamID));
-    return this.logisticRegressionFormula(averageA, averageB)
+    let team1 = teamA.map(player => player.steamID);
+    let team2 = teamB.map(player => player.steamID);
+    return this.winProbabilitySteamIDs(team1, team2)
+  }
+
+  /** Input array of players.
+   * Calculate probability of team1 winning over team2. */
+  winProbabilityPlayers(players) {
+    let {team1, team2} = playersToTeamsSteamIDs(players);
+    return this.winProbabilitySteamIDs(team1, team2)
   }
 
   /** Input lists of steamIDs.
    * Calculate probability of teamA winning over teamB. */
   winProbabilitySteamIDs(teamA, teamB) {
-    const averageA = this.averageStats(teamA);
-    const averageB = this.averageStats(teamB);
-    return this.logisticRegressionFormula(averageA, averageB)
+    const averageA = this.#averageStats(teamA);
+    const averageB = this.#averageStats(teamB);
+    return this.#logisticRegressionFormula(averageA, averageB)
   }
 
   winProbabilityToAbsoluteDiff(balanceThreshold) {
     return balanceThreshold - 0.5;
   }
 
-  logisticRegressionFormula(statsA, statsB) {
+  #logisticRegressionFormula(statsA, statsB) {
     const diff = {};
     diff.kdr = statsA.kdr - statsB.kdr;
     diff.playTime = statsA.playTime - statsB.playTime;
@@ -80,7 +87,7 @@ export class LogisticRegressionRater {
     return 1 / (1 + Math.exp(-z))
   }
 
-  averageStats(steamIDs) {
+  #averageStats(steamIDs) {
     const avgStats = {
       kdr: 0,
       playTime: 0,
@@ -570,6 +577,21 @@ export function playersToSquadSteamIDArrays(players) {
     }
   }
   return Object.values(squads)
+}
+
+/** Input SquadJS players array.
+ * Output array of steamIDs for each team.
+ */
+export function playersToTeamsSteamIDs(players) {
+  let team1 = [], team2 = [];
+  for (const player of players) {
+    if (player.teamID == 1) {
+      team1.push(player.steamID);
+    } else {
+      team2.push(player.steamID);
+    }
+  }
+  return {team1, team2}
 }
 
 /** Input target teams as lists of steamIDs.
