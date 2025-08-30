@@ -144,6 +144,7 @@ export default class SquadTeamBalancer extends BasePlugin {
   async mount() {
     this.MSS = this.server.plugins.find(p => p instanceof MySquadStatsCache);
     if (!this.MSS) {
+      this.logError('Must enable MySquadStatsCache plugin before enabling SquadTeamBalancer.')
       throw new Error('MySquadStatsCache is not enabled.')
     };
 
