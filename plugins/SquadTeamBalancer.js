@@ -137,26 +137,7 @@ export default class SquadTeamBalancer extends BasePlugin {
     this.onRoundEnd = this.onRoundEnd.bind(this);
     this.onPlayerConnect = this.onPlayerConnect.bind(this);
 
-    this.balancingModes = {
-      "squads": {
-        description: "Minimal moves, keeping squads together.",
-        aliases: ["squads", "squad"],
-      },
-      "players": {
-        description: "Minimal moves, ignoring squads.",
-        aliases: ["players", "player"],
-      },
-      "squadsFull": {
-        description: "Full balance, keeping squads together.",
-        aliases: ["squadsfull", "squadfull", "fullsquads", "fullsquad"],
-      },
-      "playersFull": {
-        description: "Full balance, maximum balancing.",
-        aliases: ["playersfull", "playerfull", "fullplayers", "fullplayer"],
-      },
-    };
-
-    this.MSS;
+    this.MSS = null;
   }
 
   async mount() {
