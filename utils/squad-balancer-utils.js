@@ -115,15 +115,6 @@ export class LogisticRegressionRater {
   }
 }
 
-export function shouldBalance(players, rater, threshold) {
-  let team1 = players.filter(player => player.teamID === 1);
-  let winProbability = rater.winProbability(team1);
-  if (winProbability > threshold || 1 - winProbability > threshold) {
-    return true;
-  }
-  return false
-}
-
 export class Balancer {
   constructor(rater, players, squads = [], clans = []) {
     this.rater = rater;
@@ -561,6 +552,15 @@ function move(array, from, to) {
   }
   array[to] = movedValue;
   return array;
+}
+
+export function shouldBalance(players, rater, threshold) {
+  let team1 = players.filter(player => player.teamID === 1);
+  let winProbability = rater.winProbability(team1);
+  if (winProbability > threshold || 1 - winProbability > threshold) {
+    return true;
+  }
+  return false
 }
 
 /** Input SquadJS players array.
