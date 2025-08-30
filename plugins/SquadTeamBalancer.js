@@ -128,10 +128,10 @@ export default class SquadTeamBalancer extends BasePlugin {
     this.onCheckCommand = this.onCheckCommand.bind(this);
     this.onCheckModeCommand = this.onCheckModeCommand.bind(this);
     this.onForceBalanceCommand = this.onForceBalanceCommand.bind(this);
-    this.onAutoBalanceToggleCommand = this.onAutoBalanceToggleCommand.bind(this);
     this.onSquadsToggleCommand = this.onSquadsToggleCommand.bind(this);
     this.onClansToggleCommand = this.onClansToggleCommand.bind(this);
     this.onMinMovesToggleCommand = this.onMinMovesToggleCommand.bind(this);
+    this.onAutoBalanceToggleCommand = this.onAutoBalanceToggleCommand.bind(this);
 
     this.onNewGame = this.onNewGame.bind(this);
     this.onRoundEnd = this.onRoundEnd.bind(this);
