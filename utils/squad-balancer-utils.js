@@ -24,7 +24,7 @@ export class LogisticRegressionRater {
     this.avgStats = playerStats.values().reduce((total, x) => {
       total.kdr += x.kdr;
       total.playTime += x.playTime;
-      total.score += x.score;
+      total.score += x.totalScore;
       total.count += x.count;
       return total
     }, { kdr: 0, playTime: 0, score: 0, count: 0 });
@@ -96,14 +96,14 @@ export class LogisticRegressionRater {
     }
 
     for (const steamID of steamIDs) {
-      const stats = this.playerStats[steamID];
-      if (stats == null) {
+      const playerStats = this.playerStats[steamID];
+      if (playerStats == null) {
         console.log(`Missing stats for playerID: ${steamID}`);
         continue
       }
-      avgStats.kdr += stats.kdr;
-      avgStats.playTime += stats.playTime;
-      avgStats.score += stats.score;
+      avgStats.kdr += playerStats.kdr;
+      avgStats.playTime += playerStats.playTime;
+      avgStats.score += playerStats.totalScore;
       avgStats.count += 1;
     }
 

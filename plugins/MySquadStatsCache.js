@@ -143,6 +143,7 @@ export default class MySquadStatsCache extends BasePlugin {
 
     const apiPlayerName = playerInfo.lastName;
     const kdr = stats.totalKdRatio ?? 1.0;
+    const totalScore = stats.totalScore ?? 0;
     const totalKills = stats.totalKills ?? 0;
     const totalDeaths = stats.totalDeaths ?? 0;
     const totalMatches = (stats.totalWins ?? 0) + (stats.totalLosses ?? 0);
@@ -155,6 +156,7 @@ export default class MySquadStatsCache extends BasePlugin {
       playTime: playTime,
       winRate: winRate,
       kdr: kdr,
+      totalScore: totalScore,
       totalMatches: totalMatches,
       totalKills: totalKills,
       totalDeaths: totalDeaths,
