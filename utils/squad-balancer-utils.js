@@ -629,10 +629,14 @@ export async function swapToTargetTeams(server, team1, team2) {
 
   // Move players that weren't part of the target teams to equalise team size.
   let playerCountDifference = (team1Size + unassignedPlayers.team1.length) - (team2Size + unassignedPlayers.team2.length);
+  let playersToMove = [];
   if (playerCountDifference > 0) {
-    unassignedPlayers.team1.slice(0, Math.min(Math.floor(playerCountDifference / 2), unassignedPlayers.team1.length)).forEach(async player => await this.server.rcon.switchTeam(player.eosID));
+    playersToMove = unassignedPlayers.team1.slice(0, Math.min(Math.floor(playerCountDifference / 2), unassignedPlayers.team1.length));
   } else if (playerCountDifference < 0) {
-    unassignedPlayers.team2.slice(0, Math.min(Math.floor(playerCountDifference / 2), unassignedPlayers.team2.length)).forEach(async player => await this.server.rcon.switchTeam(player.eosID));
+    playersToMove = unassignedPlayers.team2.slice(0, Math.min(Math.floor(playerCountDifference / 2), unassignedPlayers.team2.length));
+  }
+  for (const player of playersToMove) {
+    await this.server.rcon.switchTeam(player.eosID);
   }
 }
 
