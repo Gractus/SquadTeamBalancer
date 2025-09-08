@@ -160,6 +160,7 @@ export default class SquadTeamBalancer extends BasePlugin {
     this.server.on("ROUND_ENDED", this.onRoundEnd);
     this.server.on("PLAYER_CONNECTED", this.onPlayerConnect);
 
+    await this.prepareCache();
     this.logInfo("SquadTeamBalancer plugin mounted");
   }
 
@@ -179,6 +180,13 @@ export default class SquadTeamBalancer extends BasePlugin {
     this.server.removeEventListener("PLAYER_CONNECTED", this.onPlayerConnect);
 
     this.logInfo("SquadTeamBalancer plugin unmounted");
+  }
+
+  async prepareCache(){
+    let players = this.server.players();
+    for (const player of players) {
+      await this.MSS.fetchPlayerData(player.steamID)
+    }
   }
 
   get balanceMode() {
