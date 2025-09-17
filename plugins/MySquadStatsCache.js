@@ -45,12 +45,12 @@ export default class MySquadStatsCache extends BasePlugin {
       cacheExpiry: {
         required: false,
         description: "Hours before cached player data expires.",
-        default: 24,
+        default: 48,
       },
       statsDatabaseFile: {
         required: false,
         description: "File path for cached player data.",
-        default: "./playerSkillData.json",
+        default: "./playerStatsCache.json",
       },
       devLoggingMode: {
         required: false,
