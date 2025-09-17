@@ -22,6 +22,12 @@ export default class SquadTeamBalancer extends BasePlugin {
           "Check balance status using current balancing mode.",
         default: "balancecheck",
       },
+      checkModeCommand: {
+        required: false,
+        description:
+          "Check balance status using current balancing mode.",
+        default: "checkbalancemode",
+      },
       forceBalanceCommand: {
         required: false,
         description:
