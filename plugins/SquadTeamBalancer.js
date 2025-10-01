@@ -1,6 +1,7 @@
 import BasePlugin from "./base-plugin.js";
 import MySquadStatsCache from "./MySquadStatsCache.js"
 import { LogisticRegressionRater, RandomRater, Balancer, shouldBalance, playersToTeamsSteamIDs, playersToSquadSteamIDArrays, swapToTargetTeams } from "../utils/squad-balancer-utils.js";
+import { EmbedBuilder } from 'discord.js'
 
 export default class SquadTeamBalancer extends BasePlugin {
   static get description() {
@@ -16,6 +17,17 @@ export default class SquadTeamBalancer extends BasePlugin {
 
   static get optionsSpecification() {
     return {
+      discordClient: {
+        required: false,
+        description: "Specify a discord connector to use from config.",
+        connector: "discord",
+        default: null
+      },
+      discordLoggingChannelID: {
+        required: false,
+        description: "Specify discord channel ID to post game balance to.",
+        default: null,
+      },
       checkCommand: {
         required: false,
         description:
@@ -145,6 +157,20 @@ export default class SquadTeamBalancer extends BasePlugin {
     this.onPlayerConnect = this.onPlayerConnect.bind(this);
 
     this.MSS = null;
+    this.discordLog = null;
+  }
+
+  async prepareToMount() {
+    // Skip if discordClient is not configured
+    if (this.options.discordClient == null) return;
+
+    try {
+      this.discordLog = await this.options.discordClient.channels.fetch(this.options.discordLoggingChannelID);
+    } catch (error) {
+      this.discordLog = null;
+      this.logError(`Could not fetch Discord channel with channelID "${this.options.discordLoggingChannelID}". Error: ${error.message}`);
+      this.logDebug(`${error.stack}`);
+    }
   }
 
   async mount() {
@@ -329,7 +355,7 @@ export default class SquadTeamBalancer extends BasePlugin {
     await this.balanceTeams(players, rater);
   }
 
-  async onRoundEnd() {
+  async onRoundEnd(data) {
     this.logDebug('Round Ended.');
     this.squadStatsUtils.clearRefreshQueue();
 
@@ -341,6 +367,7 @@ export default class SquadTeamBalancer extends BasePlugin {
 
     this.logInfo(`Round end players: ${players.length}`);
     this.logDebug(`Auto-balance mode: ${this.options.autoBalanceEnabled}, playerThreshold: ${this.options.playerThreshold}, Auto-balance threshold: ${this.options.autoBalanceThreshold}`);
+    this.discordLogEndStats(rater.winProbabilityPlayers(players), data);
 
     if (this.options.autoBalanceEnabled && players.length >= this.options.playerThreshold && shouldBalance(players, rater, this.autoBalanceThreshold)) {
       this.logInfo('Round end auto-balance triggered.');
@@ -401,6 +428,7 @@ export default class SquadTeamBalancer extends BasePlugin {
 
     const targetWinProbability = rater.winProbabilitySteamIDs(team1, team2);
     this.logInfo(`Predicted target team probabilities, Team1: ${targetWinProbability.toFixed(2)}, Team2: ${(1 - targetWinProbability).toFixed(2)}, RatingMode: ${this.options.ratingMode}, Balance Mode: ${this.balanceMode}`);
+    this.discordLogBalanceOperation(winProbabilityBefore, targetWinProbability, team1, team2);
 
     if (this.options.testMode) {
       this.notifyAdmins(`Testing mode: Target team probabilities Team1: ${targetWinProbability.toFixed(2)}, Team2: ${(1 - targetWinProbability).toFixed(2)}, RatingMode: ${this.options.ratingMode}, Balance Mode: ${this.balanceMode}`);
@@ -493,5 +521,82 @@ export default class SquadTeamBalancer extends BasePlugin {
 
   logDebug() {
     this.verbose(4, message);
+  }
+
+  async discordLogEndStats(prediction, data) {
+    // Skip if discord channel is not configured.
+    if (this.discordLog == null) return;
+
+    // Defaults in the event of a draw.
+    // TODO: Listen for newGame event and track factions manually.
+    let team1StatString = `Faction: Unknown\nTickets: 0`;
+    let team2StatString = `Faction: Unknown\nTickets: 0`;
+    if (data.winner?.team == 1) {
+      team1StatString = `Faction: ${data.winner?.subfaction}\nTickets: ${data.winner?.tickets}`;
+      team2StatString = `Faction: ${data.loser?.subfaction}\nTickets: ${data.loser?.tickets}`;
+    }
+    if (data.winner?.team == 2) {
+      team1StatString = `Faction: ${data.loser?.subfaction}\nTickets: ${data.loser?.tickets}`;
+      team2StatString = `Faction: ${data.winner?.subfaction}\nTickets: ${data.winner?.tickets}`;
+    }
+
+    // Default Green
+    let colour = 0x36b642;
+    // Change to red if prediction was wrong.
+    if (prediction >= 0.5 && data.winner?.team == 2) {
+      colour = 0xff0000;
+    }
+
+    const embed = new EmbedBuilder()
+      .setColor(colour)
+      .setTitle('Round End Results')
+      .addFields(
+        { name: 'Server', value: this.server.id },
+        { name: 'Layer', value: this.server.currentLayer, inline: true },
+        { name: 'Player Count', value: this.server.players.length, inline: true },
+        { name: '\u200B', value: '\u200B', inline: true },
+        { name: 'Start Time', value: this.server.matchStartTime.toTimeString(), inline: true },
+        { name: 'End Time', value: data.time.toTimeString(), inline: true },
+        { name: '\u200B', value: '\u200B', inline: true },
+        { name: 'Winner', value: `${data.winner ? 'Team' + data.winner.team : "Draw"}`, inline: true },
+        { name: 'Team 1 Win Probability', value: prediction.toFixed(2), inline: true },
+        { name: '\u200B', value: '\u200B', inline: true },
+        { name: 'Team 1', value: team1StatString, inline: true },
+        { name: 'Team 2', value: team2StatString, inline: true },
+      )
+      .setTimestamp()
+      .setFooter({ text: 'SquadTeamBalancer Plugin for SquadJS' });
+
+    this.discordLog.send({ embeds: [embed] });
+  }
+
+  async discordLogBalanceOperation(predictionBefore, predictionAfter, targetTeam1SteamIDs, targetTeam2SteamIDs) {
+    // Skip if discord channel is not configured.
+    if (this.discordLog == null) return;
+
+    let movingToTeam1 = [];
+    let movingToTeam2 = [];
+
+    this.server.players.forEach((player) => {
+      if (targetTeam1SteamIDs.includes(player.steamID) && player.teamID == 2) movingToTeam1.push(player.name);
+      if (targetTeam2SteamIDs.includes(player.steamID) && player.teamID == 1) movingToTeam2.push(player.name);
+    });
+
+    const embed = new EmbedBuilder()
+      // Blue
+      .setColor(0x00ABFF)
+      .setTitle('Balance Operation')
+      .addFields(
+        { name: 'Balance Mode', value: this.balanceMode },
+        { name: 'Auto-Balance Threshold', value: this.options.autoBalanceThreshold.toFixed(2) },
+        { name: 'Win Probability Before', value: predictionBefore.toFixed(2), inline: true },
+        { name: 'Win Probability After', value: predictionAfter.toFixed(2), inline: true },
+        { name: 'Moving to Team 1', value: movingToTeam1.join(', ') },
+        { name: 'Moving to Team 2', value: movingToTeam2.join(', ') },
+      )
+      .setTimestamp()
+      .setFooter({ text: 'SquadTeamBalancer Plugin for SquadJS' });
+
+    this.discordLog.send({ embeds: [embed] });
   }
 }
