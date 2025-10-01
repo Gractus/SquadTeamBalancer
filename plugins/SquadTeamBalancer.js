@@ -154,6 +154,8 @@ export default class SquadTeamBalancer extends BasePlugin {
       throw new Error('MySquadStatsCache is not enabled.')
     };
 
+
+
     this.server.on(`CHAT_COMMAND:${this.options.checkCommand}`, this.onCheckCommand);
     this.server.on(`CHAT_COMMAND:${this.options.checkModeCommand}`, this.onCheckModeCommand);
     this.server.on(`CHAT_COMMAND:${this.options.forceBalanceCommand}`, this.onForceBalanceCommand);
@@ -367,11 +369,11 @@ export default class SquadTeamBalancer extends BasePlugin {
     }
     this.balanceInProgress = true;
 
-    const {team1Before, team2Before} = playersToTeamsSteamIDs(players);
-    const winProbability = rater.winProbabilitySteamIDs(team1Before, team2Before);
+    const { team1Before, team2Before } = playersToTeamsSteamIDs(players);
+    const winProbabilityBefore = rater.winProbabilitySteamIDs(team1Before, team2Before);
     this.logDebug(`Team1 before: ${team1Before}`);
     this.logDebug(`Team2 before: ${team2Before}`);
-    this.logInfo(`Pre-balance probabilities, Team1: ${winProbability.toFixed(2)}, Team2: ${(1 - winProbability).toFixed(2)}, RatingMode: ${this.options.ratingMode}`);
+    this.logInfo(`Pre-balance probabilities, Team1: ${winProbabilityBefore.toFixed(2)}, Team2: ${(1 - winProbabilityBefore).toFixed(2)}, RatingMode: ${this.options.ratingMode}`);
 
     let team1 = [];
     let team2 = [];
@@ -397,30 +399,33 @@ export default class SquadTeamBalancer extends BasePlugin {
     this.logDebug(`Target team1: ${team1}`);
     this.logDebug(`Target team2: ${team2}`);
 
+    const targetWinProbability = rater.winProbabilitySteamIDs(team1, team2);
+    this.logInfo(`Predicted target team probabilities, Team1: ${targetWinProbability.toFixed(2)}, Team2: ${(1 - targetWinProbability).toFixed(2)}, RatingMode: ${this.options.ratingMode}, Balance Mode: ${this.balanceMode}`);
+
     if (this.options.testMode) {
-      let targetWinProbability = rater.winProbabilitySteamIDs(team1, team2);
-      this.logInfo(`Predicted target team probabilities, Team1: ${targetWinProbability.toFixed(2)}, Team2: ${(1 - targetWinProbability).toFixed(2)}, RatingMode: ${this.options.ratingMode}, Balance Mode: ${this.balanceMode}`);
-      await this.notifyAdmins(`Testing mode: Target team probabilities `)
+      this.notifyAdmins(`Testing mode: Target team probabilities Team1: ${targetWinProbability.toFixed(2)}, Team2: ${(1 - targetWinProbability).toFixed(2)}, RatingMode: ${this.options.ratingMode}, Balance Mode: ${this.balanceMode}`);
       return
     }
 
     try {
       await swapToTargetTeams(server, team1, team2);
     } catch (e) {
-      this.balanceInProgress = false;
       this.logError(`Error occured during player swaps operation: ${e.message}`);
-      await this.notifyAdmins(`Error during player swaps ${e.message}`);
+      this.notifyAdmins(`Error during player swaps ${e.message}`);
+    } finally {
+      this.balanceInProgress = false;
     }
 
     await this.server.updatePlayerList();
     players = this.server.players.slice(0);
     rater = await this.getRater(players);
 
-    const {team1After, team2After} = playersToTeamsSteamIDs(players);
-    winProbability = rater.winProbabilitySteamIDs(team1After, team2After);
-    this.logInfo(`Post-balance probabilities, Team1: ${winProbability.toFixed(2)}, Team2: ${(1 - winProbability).toFixed(2)}, RatingMode: ${this.options.ratingMode}, Balance Mode: ${this.balanceMode}`);
-    this.logInfo(`Difference from target Team1: ${team2After.filter(x => !team1.includes(x))}`);
+    const { team1After, team2After } = playersToTeamsSteamIDs(players);
+    const winProbabilityAfter = rater.winProbabilitySteamIDs(team1After, team2After);
+    this.logInfo(`Post-balance probabilities, Team1: ${winProbabilityAfter.toFixed(2)}, Team2: ${(1 - winProbabilityAfter).toFixed(2)}, RatingMode: ${this.options.ratingMode}, Balance Mode: ${this.balanceMode}`);
+    this.logInfo(`Difference from target Team1: ${team1After.filter(x => !team1.includes(x))}`);
     this.logInfo(`Difference from target Team2: ${team2After.filter(x => !team2.includes(x))}`);
+    this.notifyAdmins(`Post balance probability: ${winProbabilityAfter}`);
   }
 
   async getRater(players) {
