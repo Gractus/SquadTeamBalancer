@@ -3,6 +3,10 @@ import MySquadStatsCache from "./MySquadStatsCache.js"
 import { LogisticRegressionRater, RandomRater, Balancer, shouldBalance, playersToTeamsSteamIDs, playersToSquadSteamIDArrays, swapToTargetTeams } from "../utils/squad-balancer-utils.js";
 import { EmbedBuilder } from 'discord.js'
 
+const RANDOMRATER = 'random';
+const LOGISTICREGRESSION = 'logisticRegression';
+const RATINGMODES = [RANDOMRATER, LOGISTICREGRESSION];
+
 export default class SquadTeamBalancer extends BasePlugin {
   static get description() {
     return (
@@ -88,19 +92,19 @@ export default class SquadTeamBalancer extends BasePlugin {
       autoBalanceEnabled: {
         required: false,
         description:
-        "Auto balance teams at the end of each match if balance threshold is exceeded.",
+          "Auto balance teams at the end of each match if balance threshold is exceeded.",
         default: true,
       },
       autoBalanceThreshold: {
         required: false,
         description:
-        "Trigger threshold for auto balance, value is probability of one side winning e.g. 75%.",
+          "Trigger threshold for auto balance, value is probability of one side winning e.g. 75%.",
         default: 0.75,
       },
       ratingMode: {
         required: false,
         description: "Skill rating system to use.",
-        default: "logisticregression",
+        default: LOGISTICREGRESSION,
       },
       testMode: {
         required: false,
@@ -180,7 +184,10 @@ export default class SquadTeamBalancer extends BasePlugin {
       throw new Error('MySquadStatsCache is not enabled.')
     };
 
-
+    if (!RATINGMODES.includes(this.options.ratingMode)) {
+      this.logError(`Invalid ratingMode specified in plugin config: "${this.options.ratingMode}"`);
+      throw new Error(`Invalid ratingMode option: "${this.options.ratingMode}"`);
+    }
 
     this.server.on(`CHAT_COMMAND:${this.options.checkCommand}`, this.onCheckCommand);
     this.server.on(`CHAT_COMMAND:${this.options.checkModeCommand}`, this.onCheckModeCommand);
@@ -458,7 +465,7 @@ export default class SquadTeamBalancer extends BasePlugin {
 
   async getRater(players) {
     switch (this.ratingMode) {
-      case "logisticRegression": {
+      case LOGISTICREGRESSION: {
         try {
           let steamIDs = players.map(player => player.steamID);
           let playerStats = this.MSS.getManyFromCache(steamIDs);
@@ -471,7 +478,7 @@ export default class SquadTeamBalancer extends BasePlugin {
           throw new Error(`Encountered error when trying to load player stats from MySquadStatsCache plugin. ${e.message}`);
         }
       }
-      case "random": return new RandomRater()
+      case RANDOMRATER: return new RandomRater()
       default: return new RandomRater()
     }
   }
