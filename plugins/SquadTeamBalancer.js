@@ -526,7 +526,7 @@ export default class SquadTeamBalancer extends BasePlugin {
     this.verbose(3, message);
   }
 
-  logDebug() {
+  logDebug(message) {
     this.verbose(4, message);
   }
 
