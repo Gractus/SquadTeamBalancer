@@ -72,6 +72,7 @@ By knowing every players "career" skill it's not necessary to wait until a steam
 ```json
 {
   "plugin": "MySquadStatsCache",
+  "enabled": true,
   "accessToken": "YOURTOKENHERE",
   "apiRequestRetries": 3,
   "cachePlayerData": true,
