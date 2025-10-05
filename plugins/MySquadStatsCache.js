@@ -67,13 +67,13 @@ export default class MySquadStatsCache extends BasePlugin {
 
   async mount() {
     this.loadPlayerDatabase();
-    this.logInfo("SquadTeamBalancer plugin mounted");
+    this.logInfo("MySquadStatsCache plugin mounted");
   }
 
   async unmount() {
     // TODO: emit shutdown event that other plugins depending on this one can listen for.
     this.savePlayerDatabase()
-    this.logInfo("SquadTeamBalancer plugin unmounted");
+    this.logInfo("MySquadStatsCache plugin unmounted");
   }
 
   loadPlayerDatabase() {
