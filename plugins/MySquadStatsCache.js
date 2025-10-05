@@ -259,19 +259,3 @@ function calculateTotalPlayTime(playerInfo) {
 
   return totalPlayTime;
 }
-
-function calculateWinPercentage(playerStats) {
-  if (!playerStats || !playerStats.data || playerStats.data.length === 0) {
-    return 50;
-  }
-
-  const stats = playerStats.data[0];
-  const wins = stats.totalWins || 0;
-  const losses = stats.totalLosses || 0;
-
-  if (wins + losses === 0) {
-    return 50;
-  }
-
-  return (wins / (wins + losses)) * 100;
-}
