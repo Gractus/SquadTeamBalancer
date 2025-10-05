@@ -115,31 +115,33 @@ export default class MySquadStatsCache extends BasePlugin {
   }
 
   async getFromCache(steamID, freshnessSeconds) {
-    let entry = this.playerData[steamID];
-    if (entry.lastUpdated > Date.now() - freshnessSeconds * 1000) {
+    const entry = this.playerData[steamID];
+    if (entry != null && entry.lastUpdated > Date.now() - freshnessSeconds * 1000) {
       return entry
     }
     return null
   }
 
-  async getManyFromCache(steamIDs, freshness) {
-    let results = {};
-    steamIDs.forEach(steamID => {
-      let result = this.getFromCache(steamID, freshness);
+  async getManyFromCache(steamIDs, freshnessSeconds = this.options.cacheExpiry*60*60) {
+    const results = {};
+    for (const steamID of steamIDs) {
+      const result = await this.getFromCache(steamID, freshnessSeconds);
       if (result != null) {
         results[steamID] = result;
       }
-    });
+    }
     return results
   }
 
   async fetchPlayerData(steamID, freshness = this.options.cacheExpiry) {
     if (this.options.cacheEnabled) {
-      let data = this.getFromCache(steamID, freshness);
+      const data = this.getFromCache(steamID, freshness);
       if (data != null) return data
     }
     const stats = await this.fetchPlayerStats(steamID);
+    if (!stats) throw new Error(`Missing stats for ${steamID}`)
     const playerInfo = await this.fetchPlayerInfo(steamID);
+    if (!playerInfo) throw new Error(`Missing playerInfo for ${steamID}`)
 
     const apiPlayerName = playerInfo.lastName;
     const kdr = stats.totalKdRatio ?? 1.0;
@@ -171,16 +173,18 @@ export default class MySquadStatsCache extends BasePlugin {
   async fetchPlayerInfo(steamID) {
     const url = new URL('https://api.mysquadstats.com/players');
     url.searchParams.append('search', steamID);
-    let result = await this.request(url).data[0];
-    return result
+    const result = await this.requestJSON(url);
+    if (result.status !== 'Success') return null;
+    return result.data[0];
   }
 
-  async fetchPlayerStats() {
+  async fetchPlayerStats(steamID) {
     const url = new URL('https://api.mysquadstats.com/alltimeleaderboards');
     url.searchParams.append('mod', 'vanilla');
     url.searchParams.append('search', steamID);
-    let result = await this.request(url).data[0]
-    return result
+    const result = await this.requestJSON(url);
+    if (result.data.length === 0) return null;
+    return result.data[0]
   }
 
   async requestJSON(url, maxRetries = this.options.apiRequestRetries) {
@@ -222,6 +226,7 @@ export default class MySquadStatsCache extends BasePlugin {
         lastError = error;
         this.logWarn(`API request attempt ${attempts} failed: ${error.message}`);
         await new Promise((resolve) => setTimeout(resolve, 1000 * attempts));
+        attempts++;
       }
     }
     this.logError(`API request failed after max retries: ${maxRetries}. - ${lastError.message}`)
@@ -244,7 +249,7 @@ export default class MySquadStatsCache extends BasePlugin {
     this.verbose(3, message);
   }
 
-  logDebug() {
+  logDebug(message) {
     this.verbose(4, message);
   }
 }

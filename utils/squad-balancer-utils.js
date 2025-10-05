@@ -21,11 +21,11 @@ export class RandomRater {
 export class LogisticRegressionRater {
   constructor(playerStats) {
     this.playerStats = playerStats;
-    this.avgStats = playerStats.values().reduce((total, x) => {
+    this.avgStats = Object.values(playerStats).reduce((total, x) => {
       total.kdr += x.kdr;
       total.playTime += x.playTime;
       total.score += x.totalScore;
-      total.count += x.count;
+      total.count += 1;
       return total
     }, { kdr: 0, playTime: 0, score: 0, count: 0 });
     this.avgStats.kdr /= this.avgStats.count;
@@ -36,12 +36,12 @@ export class LogisticRegressionRater {
   /** Calculate skill rating of steamID.
    * Method of rating: Probability of steamID winning vs the server average. */
   rate(steamID) {
-    const playerStats = this.playerStats[steamID];
-    if (playerStats == null) {
+    if (this.playerStats[steamID] == null) {
       console.log(`Missing stats for steamID: ${steamID}, using default rating.`);
       return 0.5
     }
-    return this.#logisticRegressionFormula(playerStats, this.avgStats)
+    const playerAvgStats = this.#averageStats([steamID]);
+    return this.#logisticRegressionFormula(playerAvgStats, this.avgStats)
   }
 
   rateGroup(steamIDs) {
@@ -60,7 +60,7 @@ export class LogisticRegressionRater {
   /** Input array of players.
    * Calculate probability of team1 winning over team2. */
   winProbabilityPlayers(players) {
-    let {team1, team2} = playersToTeamsSteamIDs(players);
+    let [team1, team2] = playersToTeamsSteamIDs(players);
     return this.winProbabilitySteamIDs(team1, team2)
   }
 
@@ -106,10 +106,11 @@ export class LogisticRegressionRater {
       avgStats.score += playerStats.totalScore;
       avgStats.count += 1;
     }
-
-    avgStats.kdr /= avgStats.count;
-    avgStats.playTime /= avgStats.count;
-    avgStats.score /= avgStats.count;
+    if (avgStats.count > 0) {
+      avgStats.kdr /= avgStats.count;
+      avgStats.playTime /= avgStats.count;
+      avgStats.score /= avgStats.count;
+    }
 
     return avgStats
   }
@@ -591,7 +592,7 @@ export function playersToTeamsSteamIDs(players) {
       team2.push(player.steamID);
     }
   }
-  return {team1, team2}
+  return [team1, team2]
 }
 
 /** Input target teams as lists of steamIDs.
@@ -622,7 +623,7 @@ export async function swapToTargetTeams(server, team1, team2) {
       targetTeam == 1 ? team1Size++ : team2Size++;
       if (player.teamID != targetTeam) {
         // TODO: Find out if there needs to be a delay between requests for this to work reliably.
-        await this.server.rcon.switchTeam(player.eosID);
+        await server.rcon.switchTeam(player.eosID);
       }
     }
   }

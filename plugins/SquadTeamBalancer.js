@@ -32,6 +32,11 @@ export default class SquadTeamBalancer extends BasePlugin {
         description: "Specify discord channel ID to post game balance to.",
         default: null,
       },
+      adminNotificationsEnabled: {
+        required: false,
+        description: "Send notifications to all admins on the server for certain actions (Boolean)",
+        default: true,
+      },
       checkCommand: {
         required: false,
         description:
@@ -224,9 +229,13 @@ export default class SquadTeamBalancer extends BasePlugin {
   }
 
   async prepareCache() {
-    let players = this.server.players();
+    let players = this.server.players.slice(0);
     for (const player of players) {
-      await this.MSS.fetchPlayerData(player.steamID)
+      try {
+        await this.MSS.fetchPlayerData(player.steamID);
+      } catch(e) {
+        this.logWarn(`Error fetching player data: ${e.message}`);
+      }
     }
   }
 
@@ -250,10 +259,10 @@ export default class SquadTeamBalancer extends BasePlugin {
       return
     }
 
-    this.options.balanceMode = newSetting;
+    this.options.autoBalanceEnabled = newSetting;
 
     this.logInfo(`Auto balance toggle command recieved, mode changed to "${this.options.autoBalanceEnabled}"`);
-    this.notifyAdmins(`Admin ${info.name} toggled auto-balancing mode to "${this.options.autoBalanceEnabled}"`);
+    this.notifyAdmins(`Admin ${info.name.trim()} toggled auto-balancing mode to "${this.options.autoBalanceEnabled}"`);
   }
 
   async onSquadsToggleCommand(info) {
@@ -271,7 +280,7 @@ export default class SquadTeamBalancer extends BasePlugin {
     this.options.preserveSquads = newSetting;
 
     this.logInfo(`Preserve squads toggle command recieved, mode changed to "${this.options.preserveSquads}"`);
-    this.notifyAdmins(`Admin ${info.name} toggled squad-preservation to "${this.options.preserveSquads}"`);
+    this.notifyAdmins(`Admin ${info.name.trim()} toggled squad-preservation to "${this.options.preserveSquads}"`);
   }
 
   async onClansToggleCommand(info) {
@@ -289,7 +298,7 @@ export default class SquadTeamBalancer extends BasePlugin {
     this.options.preserveClans = newSetting;
 
     this.logInfo(`Preserve clans toggle command recieved, mode changed to "${this.options.preserveClans}"`);
-    this.notifyAdmins(`Admin ${info.name} toggled clan-preservation to "${this.options.preserveClans}"`);
+    this.notifyAdmins(`Admin ${info.name.trim()} toggled clan-preservation to "${this.options.preserveClans}"`);
   }
 
   async onMinMovesToggleCommand(info) {
@@ -307,16 +316,16 @@ export default class SquadTeamBalancer extends BasePlugin {
     this.options.minMoves = newSetting;
 
     this.logInfo(`minMoves toggle command recieved, mode changed to "${this.options.minMoves}"`);
-    this.notifyAdmins(`Admin ${info.name} toggled minMoves mode to "${this.options.minMoves}"`);
+    this.notifyAdmins(`Admin ${info.name.trim()} toggled minMoves mode to "${this.options.minMoves}"`);
   }
 
   async #toggleCommand(info) {
-    const message = String().toLowerCase(info.message);
+    const message = info.message.toLowerCase();
     let option = null;
 
-    if (message in ['on', 'enabled', 'active', 'yes', '1', 'true']) {
+    if (['on', 'enabled', 'active', 'yes', '1', 'true'].includes(message)) {
       option = true;
-    } else if (message in ['off', 'disabled', 'inactive', 'no', '0', 'false']) {
+    } else if (['off', 'disabled', 'inactive', 'no', '0', 'false'].includes(message)) {
       option = false;
     } else {
       this.logDebug(`Toggle command recieved, but option was invalid: "${message}".`);
@@ -334,25 +343,26 @@ export default class SquadTeamBalancer extends BasePlugin {
   async onCheckCommand(info) {
     if (info.chat !== "ChatAdmin") return;
 
+    await this.server.updatePlayerList();
     const players = this.server.players.slice(0);
     const rater = await this.getRater(players);
     const winProbability = rater.winProbabilityPlayers(players);
 
-    this.logInfo(`Admin ${info.name} requested balance check. Team1: ${winProbability.toFixed(2)}, Team2: ${(1 - winProbability).toFixed(2)}`);
-    this.notifyAdmins(`Admin ${info.name} requested balance check. Team1: ${winProbability.toFixed(2)}, Team2: ${(1 - winProbability).toFixed(2)}`);
+    this.logInfo(`Admin ${info.name.trim()} requested balance check. Team1: ${winProbability.toFixed(2)}, Team2: ${(1 - winProbability).toFixed(2)}`);
+    this.notifyAdmins(`Admin ${info.name.trim()} requested balance check. Team1: ${winProbability.toFixed(2)}, Team2: ${(1 - winProbability).toFixed(2)}`);
   }
 
   async onForceBalanceCommand(info) {
     if (info.chat !== "ChatAdmin") return;
 
     if (this.lastForce != info.player.eosID) {
-      this.logDebug(`Admin ${info.name} entered a force balance command but still requires confirmation.`)
+      this.logDebug(`Admin ${info.name.trim()} entered a force balance command but still requires confirmation.`)
       this.warnPlayer(info.player.eosID, "Enter force balance command again within 15 seconds to confirm.")
       this.lastForce = info.player.eosID;
       setInterval(() => this.lastForce = null, 15 * 1000);
       return
     }
-    this.logInfo(`Admin ${info.name} launched a forced team balance.`)
+    this.logInfo(`Admin ${info.name.trim()} launched a forced team balance.`)
     this.notifyAdmins(`Admin: ${info.player.name} has launched a forced team balance.`);
     this.broadcast(this.options.startBalanceBroadcast)
 
@@ -388,8 +398,8 @@ export default class SquadTeamBalancer extends BasePlugin {
 
   async onPlayerConnect(data) {
     // this.squadStatsUtils.queuePlayerRefresh(data.steamID)
-    this.logDebug(`New player connected, steamID: ${data.steamID}. Requested cache refresh.`);
-    await this.MSS.fetchPlayerData(data.steamID);
+    this.logDebug(`New player connected, steamID: ${data.player.steamID}. Requested cache refresh.`);
+    await this.MSS.fetchPlayerData(data.player.steamID);
   }
 
   async onNewGame() {
@@ -403,7 +413,7 @@ export default class SquadTeamBalancer extends BasePlugin {
     }
     this.balanceInProgress = true;
 
-    const { team1Before, team2Before } = playersToTeamsSteamIDs(players);
+    const [ team1Before, team2Before ] = playersToTeamsSteamIDs(players);
     const winProbabilityBefore = rater.winProbabilitySteamIDs(team1Before, team2Before);
     this.logDebug(`Team1 before: ${team1Before}`);
     this.logDebug(`Team2 before: ${team2Before}`);
@@ -443,7 +453,7 @@ export default class SquadTeamBalancer extends BasePlugin {
     }
 
     try {
-      await swapToTargetTeams(server, team1, team2);
+      await swapToTargetTeams(this.server, team1, team2);
     } catch (e) {
       this.logError(`Error occured during player swaps operation: ${e.message}`);
       this.notifyAdmins(`Error during player swaps ${e.message}`);
@@ -455,7 +465,7 @@ export default class SquadTeamBalancer extends BasePlugin {
     players = this.server.players.slice(0);
     rater = await this.getRater(players);
 
-    const { team1After, team2After } = playersToTeamsSteamIDs(players);
+    const [ team1After, team2After ] = playersToTeamsSteamIDs(players);
     const winProbabilityAfter = rater.winProbabilitySteamIDs(team1After, team2After);
     this.logInfo(`Post-balance probabilities, Team1: ${winProbabilityAfter.toFixed(2)}, Team2: ${(1 - winProbabilityAfter).toFixed(2)}, RatingMode: ${this.options.ratingMode}, Balance Mode: ${this.balanceMode}`);
     this.logInfo(`Difference from target Team1: ${team1After.filter(x => !team1.includes(x))}`);
@@ -464,18 +474,18 @@ export default class SquadTeamBalancer extends BasePlugin {
   }
 
   async getRater(players) {
-    switch (this.ratingMode) {
+    switch (this.options.ratingMode) {
       case LOGISTICREGRESSION: {
         try {
           let steamIDs = players.map(player => player.steamID);
-          let playerStats = this.MSS.getManyFromCache(steamIDs);
-          if (playerStats.length < players.length) {
-            this.logWarn(`Rater is missing data for: ${!steamIDs.filter(x => Object.keys(playerStats).includes(x))}`);
+          let playerStats = await this.MSS.getManyFromCache(steamIDs);
+          if (Object.keys(playerStats).length < players.length) {
+            this.logWarn(`Rater is missing data for: ${steamIDs.filter(x => !Object.keys(playerStats).includes(x))}`);
           }
           return new LogisticRegressionRater(playerStats);
         } catch (e) {
-          this.logError(`Encountered error when trying to load player stats from MySquadStatsCache plugin. ${e.message}`);
-          throw new Error(`Encountered error when trying to load player stats from MySquadStatsCache plugin. ${e.message}`);
+          this.logError(`Encountered error while trying to create logistic regression rater. ${e.message}`);
+          throw new Error(`Encountered error while trying to create logistic regression rater. ${e.message}`);
         }
       }
       case RANDOMRATER: return new RandomRater()
