@@ -68,7 +68,14 @@ By knowing every players "career" skill it's not necessary to wait until a steam
     * `false/off/0`
 
 ## Example Configuration
+Set your Discord connector
+```json
+"connectors": {
+  "discord": "YOUR DISCORD BOT API KEY HERE",
+}
+```
 
+Plugin Setup
 ```json
 {
   "plugin": "MySquadStatsCache",
@@ -86,14 +93,25 @@ MySquadStatsCache **MUST** come before SquadTeamBalancer in your SquadJS config.
 {
   "plugin": "SquadTeamBalancer",
   "enabled": true,
+  "discordClient": "discord",
+  "discordLoggingChannelID": "CHANNEL ID HERE",
   "autoBalanceEnabled": true,
   "autoBalanceThreshold": 0.75,
   "preserveSquads": true,
   "preserveClans": true,
   "minMoves": false,
   "testMode": true,
-  "roundEndDelay": 10,
+  "roundEndDelay": 10
 }
+```
+
+Set logging in your config. Level 4 for informational events, level 5 to include debug information.
+```json
+"logger": {
+    "verboseness": {
+      "MySquadStatsCache": 5,
+      "SquadTeamBalancer": 5
+    }
 ```
 
 ## Core Files
@@ -115,7 +133,9 @@ In the future other models might be developed using something like OpenSkill or 
 #### Balancing Teams
 While it's trivial to shuffle two sets of players into optimally balanced teams, it's not a good solution. People play with their friends, they make friendships within their squad, they play with clans, if you split these social bonds between teams they will naturally reconstitute like a T-1000 as people swap back to be with their friends, terminating your efforts to balance teams.
 
-Thus we cannot consider balance at an individual player level, but instead a group level. We make the assumption that if players were friends they would be in the same squad and that squad will be the group. Clans might be bigger than a single squad, but their squads might not be exclusive to clan members, it's likely they would rather play with their clan than their specific squad members so when we assemble our groups we first group together clans, then squads, then individual players which each get their own group.
+Thus we cannot consider balance at an individual player level, but must instead work at a *group* level.
+
+We make the assumption that if players were friends they would be in the same squad and that squad will be the *group*. Clans might be bigger than a single squad, but their squads might not be exclusive to clan members, it's likely they would rather play with their clan than their specific squad members so when we assemble our groups we first group together clan members, then squads, then individual players which each get their own group.
 
 The fundamental unit we work in is the group. Each group has members, each member has a skill rating.
 
@@ -127,7 +147,7 @@ We can visualise the problem space as a bitfield of *n* values where *n* is the 
 
 For the relatively small values of *n* we expect to see (between 11 and 31 groups for a full server, average squad sizes between 9 and ~3.23), this is still within the realm of computability given the time constraints at the end of a squad match. For reference 2<sup>11</sup> = 2048 and 2<sup>31</sup> ~= 2.1 billion.
 
-Using a dynamic programming approach it's possible to explore every possible solution in under 6 seconds for up to 31 groups on an Intel i5 11600KF.
+Using a dynamic programming approach it's possible to explore every possible solution in under 6 seconds for up to 31 groups using an Intel i5 11600KF.
 
 ###### EXPLAINATION OF DYNAMIC PROGRAMMING SOLUTION COMING SOON
 
@@ -135,4 +155,4 @@ No matter the hardware you throw at this you're not going far beyond 31 groups w
 
 When working with relatively small groups we assume that we can work with them more or less like individual players and apply the same balancing stratergy as we would there. First we sort the groups by the average skill of it's members in descending order, then assign each group from best to worst to alternating teams. With some backtracking in the event of an earlier assignment, the result may not be optimal but hopefully it won't be far off. Most importantly this will be almost instantaneous.
 
-Combining the dynamic programming exhaustive search and a less intelligent, more "optimisitic" algorithm for larger numbers of groups we get a reasonably fast/accurate solution for cases.
+Combining the dynamic programming exhaustive search and a less intelligent, more "optimisitic" algorithm for larger numbers of groups we get a reasonably fast/accurate solution for both cases.
